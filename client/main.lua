@@ -582,11 +582,71 @@ function SpawnHorse(data)
         return print('No spawn position found!')
     end
 
-    MyHorse = CreatePed(MyModel, spawnPosition.x, spawnPosition.y, spawnPosition.z, GetEntityHeading(playerPed), true, false, false, false)
+MyHorse = CreatePed(MyModel, spawnPosition.x, spawnPosition.y, spawnPosition.z, GetEntityHeading(playerPed), true, false, false, false)
     local entityExists = CheckEntityExists(MyHorse)
     if not entityExists then
         return
     end
+
+    ---------------------------------------------------------------------------
+    -- [[ เริ่มต้นส่วน Custom Stats (แก้ไขล่าสุด) ]] --
+    
+    -- Debug: เช็คว่าโค้ดรันมาถึงตรงนี้ไหม และ Breed คืออะไร
+print("DEBUG: SpawnHorse reached! Breed is: " .. tostring(MyHorseBreed))
+
+    if Config.HorseStats and Config.HorseStats[MyHorseBreed] then
+        local stats = Config.HorseStats[MyHorseBreed]
+        print("DEBUG: Found stats config for " .. tostring(MyHorseBreed))
+        
+        -- 1. ปรับความเร็ว (Speed) [รับค่า Int]
+        if stats.speed then
+            Citizen.InvokeNative(0x5DA12E24E7BB5E89, MyHorse, 5, math.floor(stats.speed)) 
+        end
+        
+        -- 2. ปรับอัตราเร่ง (Acceleration) [รับค่า Int]
+        if stats.accel then
+            Citizen.InvokeNative(0x5DA12E24E7BB5E89, MyHorse, 6, math.floor(stats.accel))
+        end
+
+        -- 3. ปรับการควบคุม (Handling) [รับค่า Int]
+        if stats.handling then
+             Citizen.InvokeNative(0x5DA12E24E7BB5E89, MyHorse, 4, math.floor(stats.handling))
+        end
+
+        -- 4. ปรับเลือดสูงสุด (Max Health) [รับค่า Int]
+        if stats.hp then
+            local hpValue = math.floor(stats.hp) -- แปลงเป็นจำนวนเต็ม
+            
+            -- ตั้งค่า Max Health ของ Entity (สำคัญมาก: ต้องเป็น Int)
+            Citizen.InvokeNative(0x166E7CF68597D8B5, MyHorse, hpValue) 
+            
+            -- [[ เพิ่มใหม่ ]] บังคับเลือดปัจจุบันให้เท่ากับ Max ทันที
+            SetEntityHealth(MyHorse, hpValue)
+            
+            -- ขยายขีดจำกัด Attribute (วงกลม Stat)
+            Citizen.InvokeNative(0x09A59688C26D88DF, MyHorse, 0, hpValue)
+            -- เติมเลือดให้เต็มหลอด (Core)
+            Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 0, 100) 
+        end
+        
+        -- 5. ปรับสเตมิน่าสูงสุด (Max Stamina) [รับค่า Int]
+        if stats.stamina then
+             local stValue = math.floor(stats.stamina)
+             -- ขยายขีดจำกัด Attribute
+             Citizen.InvokeNative(0x09A59688C26D88DF, MyHorse, 1, stValue)
+             -- เติมสเตมิน่าให้เต็มหลอด (Core)
+             Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 1, 100)
+        end
+        
+        -- แจ้งเตือนเมื่อเสร็จสิ้น
+        local msg = string.format("[BCC] Stats Set: %s | HP:%s (Fixed)", tostring(MyHorseBreed), tostring(stats.hp))
+        print(msg) 
+        Core.NotifyRightTip(msg, 5000)
+        
+    else
+        print("DEBUG: No custom stats found for " .. tostring(MyHorseBreed))
+    end
+    ---------------------------------------------------------------------------
 
     SetModelAsNoLongerNeeded(MyModel)
 

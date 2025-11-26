@@ -1,3 +1,5 @@
+Config = Config or {}
+
 Horses = { -- Gold to Dollar Ratio Based on 1899 Gold Price / sellPrice is 60% of cashPrice / Cash Price is Regular Game Price
 	{
 		breed = 'American Paint',

@@ -4,7 +4,7 @@ Config = {}
 Config.defaultlang = 'en_lang'
 -----------------------------------------------------
 
-Config.devMode = false -- Default: false / Do Not Run on a Live Server
+Config.devMode = true -- Default: false / Do Not Run on a Live Server
 -----------------------------------------------------
 
 Config.discord = {
