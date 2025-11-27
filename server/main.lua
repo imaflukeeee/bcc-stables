@@ -853,3 +853,50 @@ Core.Callback.Register('bcc-stables:ReviveAtStable', function(source, cb)
         cb(false)
     end
 end)
+
+-- [NEW] 1. Heal Horse System
+Core.Callback.Register('bcc-stables:HealHorseCash', function(source, cb, horseId)
+    local src = source
+    local user = Core.getUser(src)
+    if not user then return cb(false) end
+    local character = user.getUsedCharacter
+    local cost = Config.ReviveCost or 20.0 -- Use cost from Config or default 20.0
+
+    if character.money >= cost then
+        character.removeCurrency(0, cost) -- Remove Cash
+        -- Update status: Alive, Not Injured, Full Health, Full Stamina
+        MySQL.query.await('UPDATE `player_horses` SET `dead` = 0, `writhe` = 0, `health` = 100, `stamina` = 100 WHERE `id` = ?', { horseId })
+        cb(true)
+    else
+        cb(false) -- Not enough money
+    end
+end)
+
+-- [NEW] 2. Set Favorite/Main Horse System
+RegisterNetEvent('bcc-stables:SetFavoriteHorse', function(horseId)
+    local src = source
+    local user = Core.getUser(src)
+    if not user then return end
+    local charid = user.getUsedCharacter.charIdentifier
+    local identifier = user.getUsedCharacter.identifier
+
+    -- Deselect all horses first
+    MySQL.query.await('UPDATE `player_horses` SET `selected` = 0 WHERE `charid` = ? AND `identifier` = ?', { charid, identifier })
+    
+    -- Set new favorite horse
+    MySQL.query.await('UPDATE `player_horses` SET `selected` = 1 WHERE `id` = ? AND `charid` = ?', { horseId, charid })
+    
+    Core.NotifyRightTip(src, "Horse set as Main", 4000)
+end)
+
+-- [NEW] 3. Unequip All Components System
+RegisterNetEvent('bcc-stables:UnequipComponents', function(horseId)
+    local src = source
+    local user = Core.getUser(src)
+    if not user then return end
+    
+    -- Clear components array
+    MySQL.query.await('UPDATE `player_horses` SET `components` = ? WHERE `id` = ?', { '[]', horseId })
+    
+    Core.NotifyRightTip(src, "All equipment removed", 4000)
+end)

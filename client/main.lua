@@ -36,6 +36,14 @@ local InMenu, HasJob, UsingLantern, PromptsStarted, IsFleeing = false, false, fa
 local Drinking, Spawning, Sending, Cam, InWrithe, Activated = false, false, false, false, false, false
 local DevModeActive = Config.devMode
 
+-- ฟังก์ชันคำนวณเลเวลความผูกพัน (Bonding Level) จาก XP
+local function GetBondingLevel(xp)
+    if xp >= 2400 then return 4
+    elseif xp >= 1700 then return 3
+    elseif xp >= 900 then return 2
+    else return 1 end
+end
+
 function DebugPrint(message)
     if DevModeActive then
         print('^1[DEV MODE] ^4' .. message)
@@ -133,9 +141,6 @@ end
 CreateThread(function()
     StartPrompts()
 
-    local closedCall = Config.closedCall
-    local closedReturn = Config.closedReturn
-
     while true do
         local playerPed = PlayerPedId()
         local playerCoords = GetEntityCoords(playerPed)
@@ -159,44 +164,37 @@ CreateThread(function()
 
             if distance <= siteCfg.shop.distance then
                 sleep = 0
+
+                -- [แก้ไข] ซ่อนและปิดการใช้งานปุ่ม Call (L) และ Return (R) เสมอ
+                -- เพราะย้ายไปอยู่ในเมนู OpenHorseActionsMenu แล้ว
+                UiPromptSetVisible(OpenCall, false)
+                UiPromptSetEnabled(OpenCall, false)
+                UiPromptSetVisible(OpenReturn, false)
+                UiPromptSetEnabled(OpenReturn, false)
+
                 if isClosed then
                     local promptText = string.format("%s%s%s%s%s%s", siteCfg.shop.name, _U('hours'), siteCfg.shop.hours.open, _U('to'), siteCfg.shop.hours.close, _U('hundred'))
                     UiPromptSetActiveGroupThisFrame(ShopGroup, CreateVarString(10, 'LITERAL_STRING', promptText), 2, 0, 0, 0)
+                    
                     UiPromptSetEnabled(OpenShops, false)
-                    UiPromptSetEnabled(OpenCall, closedCall)
-                    UiPromptSetEnabled(OpenReturn, closedReturn)
                 else
+                    -- แสดง Prompt กลุ่มร้านค้า (ที่เหลือแค่ปุ่ม G ปุ่มเดียว)
                     UiPromptSetActiveGroupThisFrame(ShopGroup, CreateVarString(10, 'LITERAL_STRING', siteCfg.shop.prompt), 2, 0, 0, 0)
                     UiPromptSetEnabled(OpenShops, true)
-                    UiPromptSetEnabled(OpenCall, true)
-                    UiPromptSetEnabled(OpenReturn, true)
-                end
 
-                local function handlePrompt(prompt)
-                    if UiPromptHasStandardModeCompleted(prompt, 0) then
+                    -- [แก้ไข] ตรวจสอบการกดปุ่ม G (OpenShops) เพียงอย่างเดียว
+                    if UiPromptHasStandardModeCompleted(OpenShops, 0) then
                         if siteCfg.shop.jobsEnabled then
                             CheckPlayerJob(false, site)
-                            if not HasJob then return end
+                            if not HasJob then goto CONTINUE_LOOP end
                         end
 
-                        if prompt == OpenShops then
-                            OpenStable(site)
-                        elseif prompt == OpenCall then
-                            GetSelectedHorse()
-                        elseif prompt == OpenReturn then
-                            ReturnHorse()
-                        end
+                        -- เรียกเมนูใหม่
+                        OpenHorseMainMenu(site)
                     end
                 end
-
-                if isClosed then
-                    handlePrompt(OpenCall)
-                    handlePrompt(OpenReturn)
-                else
-                    handlePrompt(OpenShops)
-                    handlePrompt(OpenCall)
-                    handlePrompt(OpenReturn)
-                end
+                
+                ::CONTINUE_LOOP::
             end
         end
         ::END::
@@ -2299,3 +2297,262 @@ AddEventHandler('onResourceStop', function(resourceName)
 
     CleanupAnimalInfoHud()
 end)
+
+-- [NEW] Main Menu Function
+function OpenHorseMainMenu(site)
+    CheckPlayerJob(false, site)
+    if not HasJob and Stables[site].shop.jobsEnabled then return end
+
+    Site = site
+    StableName = Stables[Site].shop.name
+
+    -- Fetch Horses
+    local myHorses = Core.Callback.TriggerAwait('bcc-stables:GetMyHorses')
+    
+    if not myHorses or #myHorses == 0 then
+        return Core.NotifyRightTip(_U('noHorses') or "No horses found", 4000)
+    end
+
+    local menuId = 'stable:main'
+    
+    -- 1. Register Menu Object
+    local menu = FeatherMenu:RegisterMenu(menuId, {
+        top = '20%',
+        left = '20%',
+        ['720width'] = '500px',
+        ['1080width'] = '700px',
+    })
+    
+    -- 2. Register Page
+    local page = menu:RegisterPage('mainPage')
+    
+    -- 3. Add Elements
+    -- Header
+    page:RegisterElement('header', {
+        value = StableName
+    })
+    
+    -- Text Display
+    page:RegisterElement('textdisplay', {
+        value = "Select Your Horse",
+    })
+    
+    page:RegisterElement('line', {}) -- Divider line
+
+    -- Horse Buttons
+    for _, horse in ipairs(myHorses) do
+        local status = ""
+        if horse.selected == 1 then status = " (Main)" end
+        if horse.dead == 1 then status = " (Dead)" end
+        if horse.writhe == 1 then status = " (Injured)" end
+        
+        page:RegisterElement('button', {
+            label = horse.name .. status,
+            desc = "Breed: " .. horse.model,
+        }, function(data)
+            -- Click callback: Open Actions Menu
+            OpenHorseActionsMenu(horse)
+        end)
+    end
+    
+    -- 4. Open Menu
+    menu:Open({
+        startupPage = page
+    })
+end
+
+-- [UPDATED] Actions Menu Function (เพิ่มปุ่ม Call/Return)
+function OpenHorseActionsMenu(horse)
+    local menuId = 'stable:actions'
+    
+    local menu = FeatherMenu:RegisterMenu(menuId, {
+        top = '20%',
+        left = '20%',
+        ['720width'] = '500px',
+        ['1080width'] = '700px',
+    })
+    
+    local page = menu:RegisterPage('actionPage')
+    
+    page:RegisterElement('header', {
+        value = "Manage: " .. horse.name
+    })
+
+    page:RegisterElement('line', {})
+
+    -- [NEW] 1. Call Horse (เรียกม้าตัวนี้)
+    page:RegisterElement('button', {
+        label = "1. Call Horse",
+        desc = "Spawn this horse"
+    }, function()
+        -- [CHECK] ตรวจสอบว่าเป็นม้าหลัก (Selected) หรือไม่
+        if horse.selected ~= 1 then
+            -- ถ้าไม่ใช่ ให้แจ้งเตือนและจบการทำงาน
+            return Core.NotifyRightTip("You must set this horse as Main first!", 4000)
+        end
+        
+        -- ถ้าเป็นม้าหลักแล้ว ให้ทำงานต่อ (เรียกม้า)
+        if MyHorse ~= 0 then
+            DeleteEntity(MyHorse)
+            MyHorse = 0
+        end
+
+        SpawnHorse(horse)
+        
+        Core.NotifyRightTip("Horse Called", 4000)
+        menu:Close()
+    end)
+
+    -- [NEW] 2. Return Horse (เก็บม้า)
+    page:RegisterElement('button', {
+        label = "2. Return Horse",
+        desc = "Despawn current horse"
+    }, function()
+        -- เงื่อนไขที่ 1: ต้องเป็นม้าหลัก (Main)
+        if horse.selected ~= 1 then
+            return Core.NotifyRightTip("You must set this horse as Main first!", 4000)
+        end
+
+        -- เงื่อนไขที่ 2: ต้องเป็นม้าตัวที่ถูกเรียกออกมาอยู่ (ม้าตัวเปิด)
+        -- เช็คว่ามีม้าอยู่ไหม (MyHorse ~= 0) และ ID ตรงกันไหม (MyHorseId == horse.id)
+        if MyHorse == 0 or MyHorseId ~= horse.id then
+             return Core.NotifyRightTip("This horse is not spawned!", 4000)
+        end
+
+        ReturnHorse() -- เรียกฟังก์ชันเก็บม้า
+        menu:Close()
+    end)
+
+    page:RegisterElement('line', {})
+
+    -- 3. Horse Info
+    page:RegisterElement('button', {
+        label = "3. Horse Info (Stats)",
+        desc = "View Speed, Health, and Bonding Stats"
+    }, function()
+        OpenHorseStatsMenu(horse)
+    end)
+
+    -- 4. Decorate
+    page:RegisterElement('button', {
+        label = "4. Decorate",
+        desc = "Buy accessories & customize"
+    }, function()
+        TriggerServerEvent('bcc-stables:SelectHorse', {horseId = horse.id})
+        Wait(200)
+        menu:Close()
+        OpenStable(Site) -- เปิด UI ร้านค้าเดิม
+    end)
+
+    -- 5. Heal
+    page:RegisterElement('button', {
+        label = "5. Heal",
+        desc = "Heal injury/revive (Costs money)"
+    }, function()
+        local success = Core.Callback.TriggerAwait('bcc-stables:HealHorseCash', horse.id)
+        if success then
+            Core.NotifyRightTip("Horse Healed!", 4000)
+            menu:Close()
+            OpenHorseMainMenu(Site)
+        else
+            Core.NotifyRightTip("Not enough money!", 4000)
+        end
+    end)
+
+    -- 6. Set as Main
+    page:RegisterElement('button', {
+        label = "6. Set as Main",
+        desc = "Set as default horse to call"
+    }, function()
+        TriggerServerEvent('bcc-stables:SetFavoriteHorse', horse.id)
+        menu:Close()
+        OpenHorseMainMenu(Site)
+    end)
+
+    -- 7. Unequip All
+    page:RegisterElement('button', {
+        label = "7. Unequip All",
+        desc = "Remove saddle and all items"
+    }, function()
+        TriggerServerEvent('bcc-stables:UnequipComponents', horse.id)
+        menu:Close()
+        OpenHorseMainMenu(Site)
+    end)
+
+    -- 8. Rename
+    page:RegisterElement('button', {
+        label = "8. Rename",
+        desc = "Change horse name"
+    }, function()
+        menu:Close()
+        AddTextEntry('FMMC_MPM_NA', _U('nameHorse'))
+        DisplayOnscreenKeyboard(1, 'FMMC_MPM_NA', '', horse.name, '', '', '', 30)
+        while UpdateOnscreenKeyboard() == 0 do
+            DisableAllControlActions(0)
+            Wait(0)
+        end
+        if GetOnscreenKeyboardResult() then
+            local newName = GetOnscreenKeyboardResult()
+            if string.len(newName) > 0 then
+                local updateData = { origin = 'updateHorse', horseId = horse.id, name = newName }
+                Core.Callback.TriggerAwait('bcc-stables:UpdateHorseName', updateData)
+                Wait(200)
+                OpenHorseMainMenu(Site)
+            end
+        else
+            OpenHorseActionsMenu(horse)
+        end
+    end)
+    
+    page:RegisterElement('line', {})
+
+    -- Back Button
+    page:RegisterElement('button', {
+        label = "Back",
+        desc = "Return to horse selection"
+    }, function()
+        OpenHorseMainMenu(Site)
+    end)
+
+    menu:Open({
+        startupPage = page
+    })
+end
+
+function OpenHorseStatsMenu(horse)
+    local menuId = 'stable:stats'
+    
+    local menu = FeatherMenu:RegisterMenu(menuId, {
+        top = '20%',
+        left = '20%',
+        ['720width'] = '500px',
+        ['1080width'] = '700px',
+    })
+
+    local page = menu:RegisterPage('statsPage')
+    
+    local bondingLevel = GetBondingLevel(horse.xp)
+    local genderIcon = (horse.gender == 'male') and "Male" or "Female"
+
+    page:RegisterElement('header', { value = "Stats: " .. horse.name })
+    page:RegisterElement('line', {})
+
+    page:RegisterElement('textdisplay', { value = "Breed: " .. horse.model })
+    page:RegisterElement('textdisplay', { value = "Gender: " .. genderIcon })
+    page:RegisterElement('textdisplay', { value = "Health: " .. tostring(horse.health) .. " / 100" })
+    page:RegisterElement('textdisplay', { value = "Stamina: " .. tostring(horse.stamina) .. " / 100" })
+    page:RegisterElement('textdisplay', { value = "Bonding: Level " .. bondingLevel .. " (XP: " .. horse.xp .. ")" })
+
+    page:RegisterElement('line', {})
+
+    page:RegisterElement('button', {
+        label = "Back",
+        desc = "Return to actions"
+    }, function()
+        OpenHorseActionsMenu(horse)
+    end)
+
+    menu:Open({
+        startupPage = page
+    })
+end
