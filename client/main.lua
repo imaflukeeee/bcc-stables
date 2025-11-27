@@ -36,6 +36,17 @@ local InMenu, HasJob, UsingLantern, PromptsStarted, IsFleeing = false, false, fa
 local Drinking, Spawning, Sending, Cam, InWrithe, Activated = false, false, false, false, false, false
 local DevModeActive = Config.devMode
 
+local function DrawText3D(x, y, z, text)
+    local onScreen, _x, _y = GetScreenCoordFromWorldCoord(x, y, z)
+    if onScreen then
+        SetTextScale(0.35, 0.35)
+        SetTextFontForCurrentCommand(1)
+        SetTextColor(255, 255, 255, 215)
+        SetTextCentre(1)
+        DisplayText(CreateVarString(10, "LITERAL_STRING", text), _x, _y)
+    end
+end
+
 -- ฟังก์ชันคำนวณเลเวลความผูกพัน (Bonding Level) จาก XP
 local function GetBondingLevel(xp)
     if xp >= 2400 then return 4
@@ -156,17 +167,25 @@ CreateThread(function()
                 ManageStableBlip(site, isClosed)
             end
 
+            -- 1. ส่วนจัดการ NPC (ห้ามลบโค้ดชุดนี้ ไม่งั้น NPC หาย)
             if distance > siteCfg.npc.distance or isClosed then
                 RemoveStableNPC(site)
             elseif siteCfg.npc.active then
                 AddStableNPC(site)
             end
 
+            -- [เพิ่มใหม่] แสดงชื่อร้าน 3D บนหัว NPC (เมื่ออยู่ใกล้ระยะ 10 เมตร)
+            if not isClosed and siteCfg.NPC and DoesEntityExist(siteCfg.NPC) and distance < 15.0 then
+                -- เลือกแสดงชื่อร้าน (siteCfg.shop.name) หรือ ข้อความ Prompt (siteCfg.shop.prompt)
+                local text = siteCfg.shop.name 
+                DrawText3D(siteCfg.npc.coords.x, siteCfg.npc.coords.y, siteCfg.npc.coords.z + 1.2, text)
+            end
+
+            -- 2. ส่วนจัดการปุ่มกด UiPrompt (โค้ดเดิม)
             if distance <= siteCfg.shop.distance then
                 sleep = 0
 
-                -- [แก้ไข] ซ่อนและปิดการใช้งานปุ่ม Call (L) และ Return (R) เสมอ
-                -- เพราะย้ายไปอยู่ในเมนู OpenHorseActionsMenu แล้ว
+                -- ซ่อนปุ่ม Call/Return ตามที่คุณเคยขอ
                 UiPromptSetVisible(OpenCall, false)
                 UiPromptSetEnabled(OpenCall, false)
                 UiPromptSetVisible(OpenReturn, false)
@@ -175,21 +194,17 @@ CreateThread(function()
                 if isClosed then
                     local promptText = string.format("%s%s%s%s%s%s", siteCfg.shop.name, _U('hours'), siteCfg.shop.hours.open, _U('to'), siteCfg.shop.hours.close, _U('hundred'))
                     UiPromptSetActiveGroupThisFrame(ShopGroup, CreateVarString(10, 'LITERAL_STRING', promptText), 2, 0, 0, 0)
-                    
                     UiPromptSetEnabled(OpenShops, false)
                 else
-                    -- แสดง Prompt กลุ่มร้านค้า (ที่เหลือแค่ปุ่ม G ปุ่มเดียว)
+                    -- แสดงปุ่มกดปกติ
                     UiPromptSetActiveGroupThisFrame(ShopGroup, CreateVarString(10, 'LITERAL_STRING', siteCfg.shop.prompt), 2, 0, 0, 0)
                     UiPromptSetEnabled(OpenShops, true)
 
-                    -- [แก้ไข] ตรวจสอบการกดปุ่ม G (OpenShops) เพียงอย่างเดียว
                     if UiPromptHasStandardModeCompleted(OpenShops, 0) then
                         if siteCfg.shop.jobsEnabled then
                             CheckPlayerJob(false, site)
                             if not HasJob then goto CONTINUE_LOOP end
                         end
-
-                        -- เรียกเมนูใหม่
                         OpenHorseMainMenu(site)
                     end
                 end
@@ -1975,30 +1990,21 @@ RegisterCommand(Config.commands.horseInfo, function(source, args, rawCommand)
 end, false)
 
 function StartPrompts()
+    -- [Tab 0] ปุ่มเปิดร้าน (G)
     OpenShops = UiPromptRegisterBegin()
     UiPromptSetControlAction(OpenShops, Config.keys.shop)
     UiPromptSetText(OpenShops, CreateVarString(10, 'LITERAL_STRING', _U('shopPrompt')))
     UiPromptSetVisible(OpenShops, true)
     UiPromptSetStandardMode(OpenShops, true)
+    
+    -- ใส่ Group ไว้เหมือนเดิม เพื่อให้มีชื่อร้านสวยๆ ด้านบน
     UiPromptSetGroup(OpenShops, ShopGroup, 0)
+    
     UiPromptRegisterEnd(OpenShops)
 
-    OpenCall = UiPromptRegisterBegin()
-    UiPromptSetControlAction(OpenCall, Config.keys.call)
-    UiPromptSetText(OpenCall, CreateVarString(10, 'LITERAL_STRING', _U('callPrompt')))
-    UiPromptSetVisible(OpenCall, true)
-    UiPromptSetStandardMode(OpenCall, true)
-    UiPromptSetGroup(OpenCall, ShopGroup, 1)
-    UiPromptRegisterEnd(OpenCall)
-
-    OpenReturn = UiPromptRegisterBegin()
-    UiPromptSetControlAction(OpenReturn, Config.keys.ret)
-    UiPromptSetText(OpenReturn, CreateVarString(10, 'LITERAL_STRING', _U('returnPrompt')))
-    UiPromptSetVisible(OpenReturn, true)
-    UiPromptSetStandardMode(OpenReturn, true)
-    UiPromptSetGroup(OpenReturn, ShopGroup, 1)
-    UiPromptRegisterEnd(OpenReturn)
-
+    -- [ลบ] ส่วนของ OpenCall และ OpenReturn ทิ้งไปเลยครับ (เพราะมันคือ Tab 1 ที่ทำให้เกิดปุ่ม Q)
+    
+    -- ส่วนปุ่มอื่นๆ (SellTame, KeepTame, ฯลฯ) ปล่อยไว้ตามเดิมครับ
     SellTame = UiPromptRegisterBegin()
     UiPromptSetControlAction(SellTame, Config.keys.sell)
     UiPromptSetText(SellTame, CreateVarString(10, 'LITERAL_STRING', _U('sellPrompt')))
@@ -2298,7 +2304,7 @@ AddEventHandler('onResourceStop', function(resourceName)
     CleanupAnimalInfoHud()
 end)
 
--- [NEW] Main Menu Function
+-- เมนูหน้าแรก (Main Menu)
 function OpenHorseMainMenu(site)
     CheckPlayerJob(false, site)
     if not HasJob and Stables[site].shop.jobsEnabled then return end
@@ -2306,16 +2312,7 @@ function OpenHorseMainMenu(site)
     Site = site
     StableName = Stables[Site].shop.name
 
-    -- Fetch Horses
-    local myHorses = Core.Callback.TriggerAwait('bcc-stables:GetMyHorses')
-    
-    if not myHorses or #myHorses == 0 then
-        return Core.NotifyRightTip(_U('noHorses') or "No horses found", 4000)
-    end
-
     local menuId = 'stable:main'
-    
-    -- 1. Register Menu Object
     local menu = FeatherMenu:RegisterMenu(menuId, {
         top = '20%',
         left = '20%',
@@ -2323,45 +2320,112 @@ function OpenHorseMainMenu(site)
         ['1080width'] = '700px',
     })
     
-    -- 2. Register Page
     local page = menu:RegisterPage('mainPage')
     
-    -- 3. Add Elements
-    -- Header
     page:RegisterElement('header', {
         value = StableName
     })
     
-    -- Text Display
-    page:RegisterElement('textdisplay', {
-        value = "Select Your Horse",
-    })
-    
-    page:RegisterElement('line', {}) -- Divider line
+    page:RegisterElement('line', {})
 
-    -- Horse Buttons
-    for _, horse in ipairs(myHorses) do
-        local status = ""
-        if horse.selected == 1 then status = " (Main)" end
-        if horse.dead == 1 then status = " (Dead)" end
-        if horse.writhe == 1 then status = " (Injured)" end
-        
-        page:RegisterElement('button', {
-            label = horse.name .. status,
-            desc = "Breed: " .. horse.model,
-        }, function(data)
-            -- Click callback: Open Actions Menu
-            OpenHorseActionsMenu(horse)
-        end)
-    end
+    -- 1. จัดการม้า (Manage Horses)
+    page:RegisterElement('button', {
+        label = "1. Manage Horses",
+        desc = "View and manage your owned horses"
+    }, function()
+        -- กดแล้วไปเช็คจำนวนม้าที่เมนูย่อย
+        menu:Close() 
+        OpenManageHorsesMenu(site)
+    end)
+
+    -- 2. ซื้อม้า (Buy Horse)
+    page:RegisterElement('button', {
+        label = "2. Buy Horse",
+        desc = "Purchase new horses or gear"
+    }, function()
+        menu:Close()
+        OpenStable(Site) -- เปิดหน้าร้านค้า (NUI)
+    end)
     
-    -- 4. Open Menu
+    page:RegisterElement('line', {})
+
+    -- ปุ่มปิด (Close)
+    page:RegisterElement('button', {
+        label = "Close",
+        desc = "Close Menu"
+    }, function()
+        menu:Close()
+    end)
+    
     menu:Open({
         startupPage = page
     })
 end
 
--- [UPDATED] Actions Menu Function (เพิ่มปุ่ม Call/Return)
+-- เมนูจัดการม้า (Manage Horses - Submenu)
+function OpenManageHorsesMenu(site)
+    -- ดึงข้อมูลม้า
+    local myHorses = Core.Callback.TriggerAwait('bcc-stables:GetMyHorses')
+    
+    local menuId = 'stable:manage'
+    local menu = FeatherMenu:RegisterMenu(menuId, {
+        top = '20%',
+        left = '20%',
+        ['720width'] = '500px',
+        ['1080width'] = '700px',
+    })
+    
+    local page = menu:RegisterPage('managePage')
+    
+    page:RegisterElement('header', {
+        value = "My Horses"
+    })
+    page:RegisterElement('line', {})
+
+    -- ตรวจสอบว่ามีม้าหรือไม่
+    if myHorses and #myHorses > 0 then
+        -- กรณีมีม้า: แสดงรายชื่อม้า
+        for _, horse in ipairs(myHorses) do
+            local status = ""
+            if horse.selected == 1 then status = " (Main)" end
+            if horse.dead == 1 then status = " (Dead)" end
+            if horse.writhe == 1 then status = " (Injured)" end
+            
+            page:RegisterElement('button', {
+                label = horse.name .. status,
+                desc = "Breed: " .. horse.model,
+            }, function()
+                -- กดที่ม้า -> ไปเมนู Actions (โค้ดที่คุณมีอยู่แล้ว)
+                menu:Close()
+                OpenHorseActionsMenu(horse)
+            end)
+        end
+    else
+        -- กรณีไม่มีม้า: แสดงข้อความแจ้งเตือน
+        page:RegisterElement('textdisplay', {
+            value = "You don't have any horses.",
+        })
+        page:RegisterElement('textdisplay', {
+            value = "Please go back to buy one.",
+        })
+    end
+
+    page:RegisterElement('line', {})
+
+    -- ปุ่มย้อนกลับ (Back)
+    page:RegisterElement('button', {
+        label = "Back",
+        desc = "Return to Main Menu"
+    }, function()
+        menu:Close()
+        OpenHorseMainMenu(site) -- กลับไปหน้าแรก
+    end)
+
+    menu:Open({
+        startupPage = page
+    })
+end
+
 function OpenHorseActionsMenu(horse)
     local menuId = 'stable:actions'
     
@@ -2380,46 +2444,39 @@ function OpenHorseActionsMenu(horse)
 
     page:RegisterElement('line', {})
 
-    -- [NEW] 1. Call Horse (เรียกม้าตัวนี้)
+    -- 1. Call Horse
     page:RegisterElement('button', {
         label = "1. Call Horse",
         desc = "Spawn this horse"
     }, function()
-        -- [CHECK] ตรวจสอบว่าเป็นม้าหลัก (Selected) หรือไม่
         if horse.selected ~= 1 then
-            -- ถ้าไม่ใช่ ให้แจ้งเตือนและจบการทำงาน
             return Core.NotifyRightTip("You must set this horse as Main first!", 4000)
         end
         
-        -- ถ้าเป็นม้าหลักแล้ว ให้ทำงานต่อ (เรียกม้า)
         if MyHorse ~= 0 then
             DeleteEntity(MyHorse)
             MyHorse = 0
         end
 
         SpawnHorse(horse)
-        
         Core.NotifyRightTip("Horse Called", 4000)
         menu:Close()
     end)
 
-    -- [NEW] 2. Return Horse (เก็บม้า)
+    -- 2. Return Horse
     page:RegisterElement('button', {
         label = "2. Return Horse",
         desc = "Despawn current horse"
     }, function()
-        -- เงื่อนไขที่ 1: ต้องเป็นม้าหลัก (Main)
         if horse.selected ~= 1 then
             return Core.NotifyRightTip("You must set this horse as Main first!", 4000)
         end
 
-        -- เงื่อนไขที่ 2: ต้องเป็นม้าตัวที่ถูกเรียกออกมาอยู่ (ม้าตัวเปิด)
-        -- เช็คว่ามีม้าอยู่ไหม (MyHorse ~= 0) และ ID ตรงกันไหม (MyHorseId == horse.id)
         if MyHorse == 0 or MyHorseId ~= horse.id then
              return Core.NotifyRightTip("This horse is not spawned!", 4000)
         end
 
-        ReturnHorse() -- เรียกฟังก์ชันเก็บม้า
+        ReturnHorse()
         menu:Close()
     end)
 
@@ -2441,14 +2498,18 @@ function OpenHorseActionsMenu(horse)
         TriggerServerEvent('bcc-stables:SelectHorse', {horseId = horse.id})
         Wait(200)
         menu:Close()
-        OpenStable(Site) -- เปิด UI ร้านค้าเดิม
+        OpenStable(Site)
     end)
 
-    -- 5. Heal
+    -- 5. Heal (Dead Only)
     page:RegisterElement('button', {
-        label = "5. Heal",
-        desc = "Heal injury/revive (Costs money)"
+        label = "5. Revive (Dead Only)",
+        desc = "Revive horse if dead (Costs money)"
     }, function()
+        if horse.dead ~= 1 then
+            return Core.NotifyRightTip("Your horse is not dead!", 4000)
+        end
+
         local success = Core.Callback.TriggerAwait('bcc-stables:HealHorseCash', horse.id)
         if success then
             Core.NotifyRightTip("Horse Healed!", 4000)
@@ -2469,14 +2530,13 @@ function OpenHorseActionsMenu(horse)
         OpenHorseMainMenu(Site)
     end)
 
-    -- 7. Unequip All
+    -- [แก้ไข] 7. Manage Equipment (จัดการอุปกรณ์)
     page:RegisterElement('button', {
-        label = "7. Unequip All",
-        desc = "Remove saddle and all items"
+        label = "7. Manage Equipment",
+        desc = "Unequip items specific or all"
     }, function()
-        TriggerServerEvent('bcc-stables:UnequipComponents', horse.id)
         menu:Close()
-        OpenHorseMainMenu(Site)
+        OpenHorseEquipmentMenu(horse) -- ไปเปิดเมนูย่อยใหม่
     end)
 
     -- 8. Rename
@@ -2502,6 +2562,60 @@ function OpenHorseActionsMenu(horse)
         else
             OpenHorseActionsMenu(horse)
         end
+    end)
+
+-- [NEW] 9. Release Horse (Delete)
+    page:RegisterElement('button', {
+        label = "9. Release Horse",
+        desc = "Release this horse (No Refund)"
+    }, function()
+        -- สร้างเมนูยืนยัน (Confirmation Menu)
+        local confirmMenu = FeatherMenu:RegisterMenu('stable:confirm', {
+            top = '20%',
+            left = '20%',
+            ['720width'] = '500px',
+            ['1080width'] = '700px',
+        })
+        local confirmPage = confirmMenu:RegisterPage('confirmPage')
+
+        confirmPage:RegisterElement('header', { value = "Confirm Release" })
+        confirmPage:RegisterElement('textdisplay', { value = "Are you sure you want to release " .. horse.name .. "?" })
+        confirmPage:RegisterElement('textdisplay', { value = "You will NOT get any money back." }) -- เตือนว่าไม่ได้เงิน
+        confirmPage:RegisterElement('line', {})
+
+        -- ปุ่มยืนยัน
+        confirmPage:RegisterElement('button', {
+            label = "YES, Release Horse",
+            desc = "Delete permanently (No Refund)"
+        }, function()
+            -- ถ้าม้าตัวนี้ถูกเสกออกมาอยู่ ให้ลบ Entity ทิ้งก่อน
+            if MyHorse ~= 0 and MyHorseId == horse.id then
+                DeleteEntity(MyHorse)
+                MyHorse = 0
+            end
+
+            -- [แก้ไข] เปลี่ยนไปเรียก bcc-stables:ReleaseHorse แทน SellMyHorse
+            local success = Core.Callback.TriggerAwait('bcc-stables:ReleaseHorse', { horseId = horse.id })
+            
+            if success then
+                -- Core.NotifyRightTip("Horse Released", 4000) -- Server แจ้งเตือนแล้ว
+                confirmMenu:Close()
+                OpenHorseMainMenu(Site) -- กลับไปหน้าหลัก
+            else
+                Core.NotifyRightTip("Failed to release", 4000)
+            end
+        end)
+
+        -- ปุ่มยกเลิก
+        confirmPage:RegisterElement('button', {
+            label = "NO, Cancel",
+            desc = "Go back"
+        }, function()
+            confirmMenu:Close()
+            OpenHorseActionsMenu(horse) -- กลับไปหน้าจัดการม้า
+        end)
+
+        confirmMenu:Open({ startupPage = confirmPage })
     end)
     
     page:RegisterElement('line', {})
@@ -2555,4 +2669,339 @@ function OpenHorseStatsMenu(horse)
     menu:Open({
         startupPage = page
     })
+end
+
+-- เมนูหลักจัดการอุปกรณ์ (Equipment Menu)
+function OpenHorseEquipmentMenu(horse)
+    local menuId = 'stable:equipment'
+    local menu = FeatherMenu:RegisterMenu(menuId, {
+        top = '20%',
+        left = '20%',
+        ['720width'] = '500px',
+        ['1080width'] = '700px',
+    })
+    
+    local page = menu:RegisterPage('equipPage')
+    
+    page:RegisterElement('header', {
+        value = "Equipment: " .. horse.name
+    })
+    page:RegisterElement('line', {})
+
+    -- 1.1 อุปกรณ์ที่มี (Owned/Current Equipment) - แยกหมวด
+    page:RegisterElement('button', {
+        label = "1. Current Equipment",
+        desc = "View and unequip specific items"
+    }, function()
+        menu:Close()
+        OpenHorseComponentListMenu(horse) -- ไปหน้าแสดงรายการ
+    end)
+
+    -- 1.2 ถอดอุปกรณ์ทั้งหมด (Unequip All)
+    page:RegisterElement('button', {
+        label = "2. Unequip All",
+        desc = "Remove ALL equipment at once"
+    }, function()
+        TriggerServerEvent('bcc-stables:UnequipComponents', horse.id)
+        
+        -- ถ้าม้าตัวนั้นถูกเสกออกมาอยู่ ให้ลบของที่ตัวม้าด้วยทันที
+        if MyHorse ~= 0 and MyHorseId == horse.id then
+             -- ลบทุก Category
+             local categories = {
+                0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
+                0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
+                0x30DEFDDF, 0xAC106B30, 0x94B2E3AF, 0xFACFC3C0
+             }
+             for _, cat in ipairs(categories) do
+                RemoveComponent(cat)
+             end
+        end
+
+        Core.NotifyRightTip("Unequipped All Items", 4000)
+        menu:Close()
+        OpenHorseActionsMenu(horse)
+    end)
+
+    page:RegisterElement('line', {})
+    
+    -- Back
+    page:RegisterElement('button', {
+        label = "Back",
+        desc = "Return to actions"
+    }, function()
+        menu:Close()
+        OpenHorseActionsMenu(horse)
+    end)
+
+    menu:Open({ startupPage = page })
+end
+
+function OpenHorseEquipmentMenu(horse)
+    local menuId = 'stable:equipment'
+    local menu = FeatherMenu:RegisterMenu(menuId, {
+        top = '20%',
+        left = '20%',
+        ['720width'] = '500px',
+        ['1080width'] = '700px',
+    })
+    
+    local page = menu:RegisterPage('equipPage')
+    
+    page:RegisterElement('header', { value = "Equipment: " .. horse.name })
+    page:RegisterElement('line', {})
+
+    -- รายชื่อหมวดหมู่ 13 หมวด
+    local CategoryOrder = {
+        { key = "Saddles", label = "Saddles (อานม้า)" },
+        { key = "Saddlecloths", label = "Saddle Cloths (ผ้าพาดอาน)" },
+        { key = "Stirrups", label = "Stirrups (โกลน)" },
+        { key = "SaddleBags", label = "Saddle Bags (กระเป๋า)" }, 
+        { key = "Manes", label = "Manes (แผงคอ)" },
+        { key = "Tails", label = "Tails (หาง)" },
+        { key = "SaddleHorns", label = "Horns (หัวอาน)" },
+        { key = "Bedrolls", label = "Bedrolls (เครื่องนอน)" },
+        { key = "Masks", label = "Masks (หน้ากาก)" },
+        { key = "Mustaches", label = "Mustaches (หนวดม้า)" },
+        { key = "Holsters", label = "Holsters (ซองปืน)" },
+        { key = "Bridles", label = "Bridles (บังเหียน)" },
+        { key = "Horseshoes", label = "Shoes (เกือกม้า)" }
+    }
+
+    -- วนลูปสร้างปุ่มแต่ละหมวด
+    for _, cat in ipairs(CategoryOrder) do
+        page:RegisterElement('button', {
+            label = cat.label,
+            desc = "Manage items in " .. cat.key
+        }, function()
+            menu:Close()
+            -- เปิดเมนูย่อยใหม่ (ไม่ใช้ OpenHorseComponentListMenu แล้ว)
+            OpenCategoryItemsMenu(horse, cat.key, cat.label)
+        end)
+    end
+
+    page:RegisterElement('line', {})
+
+    -- ปุ่มถอดทั้งหมด
+    page:RegisterElement('button', {
+        label = "Unequip All Items",
+        desc = "Remove ALL equipment"
+    }, function()
+        TriggerServerEvent('bcc-stables:UnequipComponents', horse.id)
+        
+        -- อัปเดตข้อมูล Local
+        horse.components = '[]'
+
+        -- ลบของที่ตัวม้า (ถ้าเสกอยู่)
+        if MyHorse ~= 0 and MyHorseId == horse.id then
+             local categories = {
+                0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
+                0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
+                0x30DEFDDF, 0xAC106B30, 0x94B2E3AF, 0xFACFC3C0
+             }
+             for _, cat in ipairs(categories) do
+                RemoveComponent(cat)
+             end
+        end
+
+        Core.NotifyRightTip("Unequipped All Items", 4000)
+    end)
+    
+    -- Back
+    page:RegisterElement('button', {
+        label = "Back",
+        desc = "Return to actions"
+    }, function()
+        menu:Close()
+        OpenHorseActionsMenu(horse)
+    end)
+
+    menu:Open({ startupPage = page })
+end
+
+-- เมนูย่อยแสดงรายการไอเทมในหมวด (แก้ไข: แสดงเฉพาะของที่มี)
+function OpenCategoryItemsMenu(horse, categoryKey, categoryLabel)
+    local menuId = 'stable:catitems'
+    local menu = FeatherMenu:RegisterMenu(menuId, {
+        top = '20%',
+        left = '20%',
+        ['720width'] = '500px',
+        ['1080width'] = '700px',
+    })
+    
+    local page = menu:RegisterPage('catItemsPage')
+    
+    page:RegisterElement('header', { value = categoryLabel })
+    page:RegisterElement('line', {})
+
+    -- 1. ดึงข้อมูลของที่ "ใส่อยู่" (Equipped)
+    local currentHashes = {}
+    if horse.components and horse.components ~= '[]' then
+        local decoded = json.decode(horse.components)
+        for _, h in ipairs(decoded) do
+            currentHashes[tonumber(h)] = true
+        end
+    end
+
+    -- 2. ดึงข้อมูลของที่ "เป็นเจ้าของ" (Owned)
+    local ownedHashes = {}
+    -- (Support: ให้ถือว่าของที่ใส่อยู่เป็นของที่มีด้วยเสมอ)
+    for k,v in pairs(currentHashes) do ownedHashes[k] = true end
+
+    if horse.owned_components and horse.owned_components ~= '[]' then
+        local decodedOwned = json.decode(horse.owned_components)
+        if decodedOwned then
+            for _, h in ipairs(decodedOwned) do
+                ownedHashes[tonumber(h)] = true
+            end
+        end
+    end
+
+    local hasAnyItem = false -- ตัวแปรเช็คว่ามีของโชว์ไหม
+
+    if not HorseComp or not HorseComp[categoryKey] then
+        page:RegisterElement('textdisplay', { value = "No config found for this category." })
+    else
+        for _, item in ipairs(HorseComp[categoryKey]) do
+            local itemHash = tonumber(item.hash)
+            local isEquipped = currentHashes[itemHash]
+            local isOwned = ownedHashes[itemHash]
+            local itemName = item.name or ("Item " .. itemHash)
+
+            -- [[ แสดงเฉพาะ: ของที่ใส่อยู่ หรือ ของที่เป็นเจ้าของ ]]
+            if isEquipped or isOwned then
+                hasAnyItem = true
+                
+                if isEquipped then
+                    -- [[ A. ใส่อยู่ -> แสดงปุ่ม "ถอดออก" ]] --
+                    page:RegisterElement('button', {
+                        label = "[EQUIPPED] " .. itemName,
+                        desc = "Click to UNEQUIP"
+                    }, function()
+                        -- Logic ถอดออก
+                        local newComps = {}
+                        local oldComps = json.decode(horse.components)
+                        for _, h in ipairs(oldComps) do
+                            if tonumber(h) ~= itemHash then
+                                table.insert(newComps, h)
+                            end
+                        end
+                        
+                        -- บันทึกว่าเรายังเป็นเจ้าของมันอยู่
+                        SaveOwnedItem(horse, itemHash)
+                        
+                        -- อัปเดตการสวมใส่
+                        UpdateHorseComponents(horse, newComps)
+                        
+                        Core.NotifyRightTip("Unequipped " .. itemName, 2000)
+                        menu:Close()
+                        OpenCategoryItemsMenu(horse, categoryKey, categoryLabel)
+                    end)
+                else
+                    -- [[ B. มีของแต่ถอดอยู่ -> แสดงปุ่ม "ใส่" (ฟรี) ]] --
+                    page:RegisterElement('button', {
+                        label = itemName,
+                        desc = "Click to EQUIP"
+                    }, function()
+                        -- ใส่ไอเทม
+                        EquipItemLogic(horse, categoryKey, itemHash)
+                        
+                        Core.NotifyRightTip("Equipped " .. itemName, 2000)
+                        menu:Close()
+                        OpenCategoryItemsMenu(horse, categoryKey, categoryLabel)
+                    end)
+                end
+            end
+            -- หมายเหตุ: รายการที่ยังไม่ซื้อ (else) ถูกตัดออกไปแล้วตามคำขอ
+        end
+    end
+
+    -- ถ้าไม่มีของในหมวดนี้เลย ให้ขึ้นข้อความบอก
+    if not hasAnyItem then
+        page:RegisterElement('textdisplay', { value = "You don't own any items in this category." })
+    end
+
+    page:RegisterElement('line', {})
+    
+    page:RegisterElement('button', {
+        label = "Back",
+        desc = "Return to category list"
+    }, function()
+        menu:Close()
+        OpenHorseEquipmentMenu(horse)
+    end)
+
+    menu:Open({ startupPage = page })
+end
+
+-- ฟังก์ชันช่วยสวมใส่ไอเทม (และถอดของเก่าในหมวดเดียวกันออก)
+function EquipItemLogic(horse, categoryKey, itemHash)
+    -- 1. หาว่า Hash ไหนบ้างที่เป็นหมวดเดียวกัน (เพื่อจะถอดของเก่าออก)
+    local hashesInThisCat = {}
+    if HorseComp and HorseComp[categoryKey] then
+        for _, comp in ipairs(HorseComp[categoryKey]) do
+            hashesInThisCat[tonumber(comp.hash)] = true
+        end
+    end
+
+    local newComps = {}
+    local oldComps = {}
+    if horse.components and horse.components ~= '[]' then
+        oldComps = json.decode(horse.components)
+    end
+
+    -- เก็บของเดิมที่ไม่ใช่หมวดนี้ไว้
+    for _, h in ipairs(oldComps) do
+        if not hashesInThisCat[tonumber(h)] then
+            table.insert(newComps, h)
+        end
+    end
+
+    -- ใส่ของใหม่เข้าไป
+    table.insert(newComps, itemHash)
+
+    UpdateHorseComponents(horse, newComps)
+end
+
+-- ฟังก์ชันบันทึกรายการว่าเป็นเจ้าของ (Owned)
+function SaveOwnedItem(horse, itemHash)
+    local currentOwned = {}
+    if horse.owned_components and horse.owned_components ~= '[]' then
+        currentOwned = json.decode(horse.owned_components) or {}
+    end
+
+    -- เช็คว่ามีอยู่แล้วไหม
+    local exists = false
+    for _, h in ipairs(currentOwned) do
+        if tonumber(h) == tonumber(itemHash) then exists = true break end
+    end
+
+    if not exists then
+        table.insert(currentOwned, itemHash)
+        local encoded = json.encode(currentOwned)
+        horse.owned_components = encoded -- อัปเดตข้อมูล Local
+        Core.Callback.TriggerAwait('bcc-stables:UpdateOwnedComponents', encoded, horse.id)
+    end
+end
+
+-- ฟังก์ชันช่วยอัปเดตข้อมูลการสวมใส่ (Components)
+function UpdateHorseComponents(horse, newCompsTable)
+    local encoded = json.encode(newCompsTable)
+    horse.components = encoded
+    Core.Callback.TriggerAwait('bcc-stables:UpdateComponents', encoded, horse.id)
+
+    if MyHorse ~= 0 and MyHorseId == horse.id then
+         -- ลบของเก่าออกให้หมดแล้วใส่ใหม่ (วิธีที่ปลอดภัยสุด)
+         local categoriesToRemove = {
+            0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
+            0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
+            0x30DEFDDF, 0xAC106B30, 0x94B2E3AF, 0xFACFC3C0
+         }
+         for _, cat in ipairs(categoriesToRemove) do
+            RemoveComponent(cat)
+         end
+         
+         for _, h in ipairs(newCompsTable) do
+            SetComponent(MyHorse, h)
+         end
+    end
 end

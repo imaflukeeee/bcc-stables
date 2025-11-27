@@ -378,6 +378,22 @@ Core.Callback.Register('bcc-stables:UpdateComponents', function(source, cb, enco
     cb(true)
 end)
 
+-- [NEW] บันทึกรายการของที่เป็นเจ้าของ (Owned Items)
+Core.Callback.Register('bcc-stables:UpdateOwnedComponents', function(source, cb, encodedComponents, horseId)
+    local src = source
+    local user = Core.getUser(src)
+    if not user then return cb(false) end
+
+    local character = user.getUsedCharacter
+    local identifier = character.identifier
+    local charid = character.charIdentifier
+
+    MySQL.query.await('UPDATE `player_horses` SET `owned_components` = ? WHERE `id` = ? AND `charid` = ? AND `identifier` = ?',
+    { encodedComponents, horseId, charid, identifier })
+
+    cb(true)
+end)
+
 Core.Callback.Register('bcc-stables:SellMyHorse', function(source, cb, data)
     local src = source
     local user = Core.getUser(src)
@@ -899,4 +915,41 @@ RegisterNetEvent('bcc-stables:UnequipComponents', function(horseId)
     MySQL.query.await('UPDATE `player_horses` SET `components` = ? WHERE `id` = ?', { '[]', horseId })
     
     Core.NotifyRightTip(src, "All equipment removed", 4000)
+end)
+
+-- [NEW] 4. Release Horse (Delete without refund)
+Core.Callback.Register('bcc-stables:ReleaseHorse', function(source, cb, data)
+    local src = source
+    local user = Core.getUser(src)
+    if not user then return cb(false) end
+
+    local character = user.getUsedCharacter
+    local identifier = character.identifier
+    local charid = character.charIdentifier
+    local horseId = tonumber(data.horseId)
+    local matchFound = false
+
+    -- ตรวจสอบว่าเป็นเจ้าของม้าจริงไหม
+    local horses = MySQL.query.await('SELECT `id` FROM `player_horses` WHERE `charid` = ? AND `identifier` = ?',
+    { charid, identifier })
+
+    -- วนลูปหาและลบม้า
+    for i = 1, #horses do
+        if tonumber(horses[i].id) == horseId then
+            matchFound = true
+
+            MySQL.query.await('DELETE FROM `player_horses` WHERE `id` = ? AND `charid` = ? AND `identifier` = ?',
+            { horseId, charid, identifier })
+
+            -- บันทึกลง Discord ว่าปล่อยม้า (ถ้าเปิดใช้)
+            LogToDiscord(charid, "Released a horse (Deleted)")
+            break
+        end
+    end
+
+    if not matchFound then return cb(false) end
+
+    -- แจ้งเตือนและจบการทำงาน (โดยไม่คืนเงิน)
+    Core.NotifyRightTip(src, "Released Horse to the wild", 4000)
+    return cb(true)
 end)
