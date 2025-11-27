@@ -290,7 +290,7 @@ RegisterNetEvent('bcc-stables:UpdateHorseStatus', function(horseId, action)
     local identifier = character.identifier
     local charid = character.charIdentifier
 
-    local selected = (action == 'dead' or action == 'deselect') and 0 or 1
+    local selected = (action == 'deselect') and 0 or 1
     local dead = action == 'dead' and 1 or 0
 
     MySQL.query.await('UPDATE `player_horses` SET `selected` = ?, `writhe` = ?, `dead` = ? WHERE `id` = ? AND `identifier` = ? AND `charid` = ?',
@@ -308,8 +308,8 @@ Core.Callback.Register('bcc-stables:GetHorseData', function(source, cb)
 
     local character = user.getUsedCharacter
 
-    local horses = MySQL.query.await('SELECT * FROM `player_horses` WHERE `charid` = ? AND `identifier` = ? AND `dead` = ?',
-    { character.charIdentifier, character.identifier, 0 })
+    local horses = MySQL.query.await('SELECT * FROM `player_horses` WHERE `charid` = ? AND `identifier` = ?',
+    { character.charIdentifier, character.identifier })
 
     if #horses == 0 then
         Core.NotifyRightTip(src, _U('noHorses'), 4000)
@@ -339,7 +339,8 @@ Core.Callback.Register('bcc-stables:GetHorseData', function(source, cb)
         captured = selectedHorse.captured,
         health = selectedHorse.health,
         stamina = selectedHorse.stamina,
-        writhe = selectedHorse.writhe
+        writhe = selectedHorse.writhe,
+        dead = selectedHorse.dead
     })
 end)
 
@@ -831,3 +832,24 @@ if not file_exists('./ui/index.html') then
 end
 
 BccUtils.Versioner.checkFile(GetCurrentResourceName(), 'https://github.com/BryceCanyonCounty/bcc-stables')
+
+Core.Callback.Register('bcc-stables:ReviveAtStable', function(source, cb)
+    local src = source
+    local user = Core.getUser(src)
+    if not user then return cb(false) end
+    
+    local character = user.getUsedCharacter
+    local cost = Config.ReviveCost or 10.0
+
+    if character.money >= cost then
+        character.removeCurrency(0, cost) -- ตัดเงิน
+        
+        -- อัปเดตฐานข้อมูลให้ม้าหายตาย
+        MySQL.query.await('UPDATE `player_horses` SET `dead` = 0, `health` = 100, `writhe` = 0 WHERE `charid` = ? AND `identifier` = ? AND `selected` = 1',
+        { character.charIdentifier, character.identifier })
+        
+        cb(true)
+    else
+        cb(false)
+    end
+end)

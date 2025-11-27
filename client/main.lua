@@ -448,6 +448,39 @@ function GetSelectedHorse()
         return print('No selected-horse data returned!')
     end
 
+    -- เพิ่มการตรวจสอบสถานะตาย
+    if data.dead == 1 then
+        -- ตรวจสอบว่าผู้เล่นอยู่ใกล้คอกม้าหรือไม่ (เช็คจากตัวแปร InMenu หรือ ShopGroup)
+        -- แต่เพื่อให้ง่าย เราจะเช็คว่าถ้ากดเรียกในขณะที่ Prompt "Call Horse" ของร้านค้าทำงานอยู่
+        local playerPed = PlayerPedId()
+        local coords = GetEntityCoords(playerPed)
+        local nearStable = false
+        
+        for site, siteCfg in pairs(Stables) do
+            if #(coords - siteCfg.npc.coords) <= siteCfg.shop.distance then
+                nearStable = true
+                break
+            end
+        end
+
+        if nearStable then
+            -- ถ้าอยู่หน้าคอกม้า ให้ทำการรักษา
+            local revived = Core.Callback.TriggerAwait('bcc-stables:ReviveAtStable')
+            if revived then
+                Core.NotifyRightTip("Revive Horse", 4000)
+                -- เรียกฟังก์ชันนี้อีกครั้งเพื่อเสกม้าออกมา
+                GetSelectedHorse() 
+            else
+                Core.NotifyRightTip("Money not enough", 4000)
+            end
+        else
+            -- ถ้าอยู่นอกพื้นที่คอกม้า แจ้งเตือนว่าตาย
+            Core.NotifyRightTip("Horse Dead", 4000)
+            -- หรือใช้ TriggerEvent("vorp:TipBottom", "ม้าของคุณเสียชีวิตแล้ว", 4000)
+        end
+        return -- จบการทำงาน ไม่เสกม้า
+    end
+
     SpawnHorse(data)
 end
 
@@ -1034,6 +1067,7 @@ end)
 
 AddEventHandler('bcc-stables:ManageHorseDeath', function()
     if not InWrithe then
+        -- ส่วนของการเข้าสถานะบาดเจ็บ (Writhe) เหมือนเดิม
         InWrithe = true
         Citizen.InvokeNative(0x71BC8E838B9C6035, MyHorse) -- ResurrectPed
         Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 136, false)-- SetPedConfigFlag / CannotBeMounted
@@ -1050,10 +1084,13 @@ AddEventHandler('bcc-stables:ManageHorseDeath', function()
 
         SaveHorseStats(true)
     else
-        local action = (Config.death.permanent and 'dead') or (Config.death.deselect and 'deselect') or nil
-        if action then
-            Core.NotifyRightTip(_U('horseDied'), 4000)
-        end
+        -- [แก้ไขส่วนนี้] เมื่อม้าตายสนิท (หลังจาก Writhe หรือถูกซ้ำ)
+        local action = 'dead' -- บังคับให้เป็นสถานะตาย
+        
+        -- แจ้งเตือนว่าม้าเสียชีวิต
+        Core.NotifyRightTip("Horse Dead", 4000) 
+        
+        -- อัปเดตสถานะลงฐานข้อมูล
         TriggerServerEvent('bcc-stables:UpdateHorseStatus', MyHorseId, action)
 
         Wait(5000)

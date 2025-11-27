@@ -15,6 +15,8 @@ Config.discord = {
 }
 -----------------------------------------------------
 
+Config.ReviveCost = 20.0 -- ราคาค่ารักษา
+
 -- Set the currency type
 -- 0 = Cash Only
 -- 1 = Gold Only
@@ -112,7 +114,7 @@ Config.death             = {
     writheEnabled = true,    -- Default: true / If false, Horse will skip Writhe State and go directly to Dead
     persistentWrithe = true, -- Default: true / If true, Writhe State will be Saved to Database and Set on Spawn Until Revived or Killed
     deselect = false,        -- Default: false / If true, Player Must Return to Stable to Select Horse to Spawn (Requires "writheEnabled" to be true)
-    permanent = false,       -- Default: false / If true, Horse is Permanently Dead (Requires "writheEnabled" to be true)
+    permanent = true,       -- Default: false / If true, Horse is Permanently Dead (Requires "writheEnabled" to be true)
     health = 20,             -- Default: 20 / Max: 100 / Core Health Level for First Spawn After Death
     stamina = 20,            -- Default: 20 / Max: 100 / Core Stamina Level for First Spawn After Death
 }
