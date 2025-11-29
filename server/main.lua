@@ -543,12 +543,20 @@ RegisterNetEvent('bcc-stables:RegisterInventory', function(id, model)
     local idStr = 'horse_' .. tostring(id)
     local isRegistered = exports.vorp_inventory:isCustomInventoryRegistered(idStr)
 
+    -- [แก้ไขใหม่] 1. ดึงชื่อม้าจากฐานข้อมูล
+    local horseName = _U('horseInv') -- ค่าเริ่มต้น (Saddlebags)
+    local result = MySQL.query.await('SELECT name FROM player_horses WHERE id = ?', {id})
+    if result and result[1] and result[1].name then
+        horseName = result[1].name -- ใช้ชื่อม้าถ้าหาเจอ
+    end
+    -- [จบส่วนแก้ไข]
+
     for _, horseCfg in pairs(Horses) do
         if horseCfg.colors[model] then
             local colorCfg = horseCfg.colors[model]
             local data = {
                 id = idStr,
-                name = _U('horseInv'),
+                name = horseName, -- [แก้ไขใหม่] 2. เปลี่ยนตรงนี้จาก _U('horseInv') เป็นตัวแปร horseName
                 limit = tonumber(colorCfg.invLimit),
                 acceptWeapons = Config.allowWeapons,
                 shared = Config.shareInventory,
