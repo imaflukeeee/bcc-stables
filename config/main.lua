@@ -4,7 +4,7 @@ Config = {}
 Config.defaultlang = 'en_lang'
 -----------------------------------------------------
 
-Config.devMode = false -- Default: false / Do Not Run on a Live Server
+Config.devMode = true -- Default: false / Do Not Run on a Live Server
 -----------------------------------------------------
 
 Config.discord = {
@@ -14,7 +14,20 @@ Config.discord = {
     avatar = ''
 }
 -----------------------------------------------------
-
+Config.Horseshoes = {
+    enabled = true,             -- เปิดใช้งานระบบ
+    decayDistance = 100.0,    -- ระยะทาง (หน่วย Game Units) ที่จะทำให้เกือกม้าพังจาก 100% -> 0% (ยิ่งเยอะยิ่งทน)
+    repairCost = 5.0,           -- ราคาค่าซ่อมที่คอกม้า (Stable)
+    repairItem = 'horseshoe',   -- ชื่อไอเทมที่ใช้ซ่อม (ต้องมีใน Database)
+    repairTime = 5000,          -- เวลาที่ใช้ซ่อมด้วยไอเทม (ms)
+    checkCommand = 'checkshoes',-- คำสั่งเช็คสถานะ
+    warningLevel = 20,          -- แจ้งเตือนเมื่อความทนทานต่ำกว่า % นี้
+    brokenEffect = {
+        speedMult = 1.5,        -- ตัวหารความเร็วเมื่อพัง (3.0 = ช้าลง 3 เท่า)
+        slipChance = 5          -- โอกาสลื่นล้ม (%) เมื่อเกือกม้าพัง (0 = ปิด)
+    }
+}
+-----------------------------------------------------
 Config.ReviveCost = 20.0 -- ราคาค่ารักษา
 
 -- Set the currency type

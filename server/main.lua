@@ -953,3 +953,55 @@ Core.Callback.Register('bcc-stables:ReleaseHorse', function(source, cb, data)
     Core.NotifyRightTip(src, "Released Horse to the wild", 4000)
     return cb(true)
 end)
+
+-- 1. ลงทะเบียนไอเทมซ่อมเกือกม้า
+if Config.Horseshoes.enabled then
+    exports.vorp_inventory:registerUsableItem(Config.Horseshoes.repairItem, function(data)
+        local src = data.source
+        TriggerClientEvent('bcc-stables:Client:UseShoeRepairKit', src)
+    end)
+end
+
+-- 2. Event ซ่อมด้วยเงิน (ที่คอกม้า)
+RegisterNetEvent('bcc-stables:Server:RepairShoeCash', function(horseId)
+    local src = source
+    local user = Core.getUser(src)
+    if not user then return end
+    local character = user.getUsedCharacter
+    local cost = Config.Horseshoes.repairCost
+
+    if character.money >= cost then
+        character.removeCurrency(0, cost)
+        MySQL.update('UPDATE `player_horses` SET `shoe_durability` = 100 WHERE `id` = ?', {horseId})
+        TriggerClientEvent('bcc-stables:Client:ShoeRepaired', src, 100)
+        Core.NotifyRightTip(src, "Horseshoes Repaired for $"..cost, 4000)
+    else
+        Core.NotifyRightTip(src, "Not enough money!", 4000)
+    end
+end)
+
+-- 3. Event ซ่อมด้วยไอเทม (หักไอเทม)
+RegisterNetEvent('bcc-stables:Server:RepairShoeItem', function(horseId)
+    local src = source
+    local user = Core.getUser(src)
+    if not user then return end
+    
+    local item = Config.Horseshoes.repairItem
+    local count = exports.vorp_inventory:getItemCount(src, nil, item)
+    
+    if count > 0 then
+        exports.vorp_inventory:subItem(src, item, 1)
+        MySQL.update('UPDATE `player_horses` SET `shoe_durability` = 100 WHERE `id` = ?', {horseId})
+        TriggerClientEvent('bcc-stables:Client:ShoeRepaired', src, 100)
+        Core.NotifyRightTip(src, "Horseshoes replaced successfully!", 4000)
+    else
+        Core.NotifyRightTip(src, "You don't have a horseshoe!", 4000)
+    end
+end)
+
+-- 4. อัปเดตค่าความทนทานลง DB (จาก Client)
+RegisterNetEvent('bcc-stables:UpdateShoeDurability', function(horseId, durability)
+    local src = source
+    MySQL.update('UPDATE `player_horses` SET `shoe_durability` = ? WHERE `id` = ?', {durability, horseId})
+    if Config.devMode then print('^3[DEBUG] Horse '..horseId..' Shoes: '..durability..'%^0') end
+end)

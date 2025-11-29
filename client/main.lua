@@ -1,6 +1,9 @@
 local Core = exports.vorp_core:GetCore()
 FeatherMenu =  exports['feather-menu'].initiate()
 
+local MyHorseShoeDurability = 100 -- ค่าความทนทานปัจจุบัน
+local isBrokenState = false -- ตัวแปรเช็คสถานะเพื่อไม่ให้ ClearTasks รัวเกินไป
+
 -- Prompts
 local OpenShops, OpenCall, OpenReturn
 local ShopGroup = GetRandomIntInRange(0, 0xffffff)
@@ -148,6 +151,73 @@ local function RemoveHorsePrompts()
     UiPromptDelete(HorseWallow)
     PromptsStarted = false
 end
+
+-- [FIXED v2] Loop บังคับสถานะเกือกม้า (Strict Mode)
+local isBrokenState = false -- ตัวแปรเช็คสถานะเพื่อไม่ให้ ClearTasks รัวเกินไป
+local isLimiting = false
+
+CreateThread(function()
+    while true do
+        local sleep = 1000
+        local playerPed = PlayerPedId()
+        
+        -- เช็คว่าระบบเปิดอยู่ และเรากำลังขี่ม้าอยู่หรือไม่
+        -- ใช้ GetMount(playerPed) เพื่อความชัวร์ว่าคุมม้าตัวที่ขี่อยู่จริงๆ
+        local currentMount = Citizen.InvokeNative(0xE7E11B8DCBED1058, playerPed) -- GetMount
+        
+        if Config.Horseshoes and Config.Horseshoes.enabled and currentMount ~= 0 then
+            
+            -- ตรวจสอบว่าเป็นม้าของเราหรือไม่ (จาก MyHorseId หรือ Entity)
+            -- หรือถ้าอยากให้มีผลกับม้าทุกตัวที่ขี่ตอนเกือกม้าพัง ก็เช็คแค่ Durability
+            if currentMount == MyHorse then
+                
+                -- [กรณีเกือกม้าพัง 0%] -> บังคับเดิน
+                if MyHorseShoeDurability <= 0 then
+                    sleep = 0 -- ทำงานทุกเฟรม
+                    
+                    -- 1. เคลียร์ Task วิ่งทิ้ง 1 ครั้งตอนเริ่มพัง
+                    if not isLimiting then
+                        ClearPedTasks(currentMount)
+                        isLimiting = true
+                    end
+
+                    -- 2. บังคับ Animation ให้เหลือแค่ท่าเดิน (สำคัญที่สุด)
+                    -- 0.0 = Idle, 1.0 = Walk, 2.0 = Trot, 3.0 = Sprint
+                    Citizen.InvokeNative(0xD2CB0FB0FDCB473D, currentMount, 1.0) 
+
+                    -- 3. ตั้งเพดานความเร็ว (หน่วยเมตร/วินาที)
+                    -- 1.2 ถึง 1.5 คือความเร็วเดินปกติ
+                    Citizen.InvokeNative(0x469F2ECDEC04F841, currentMount, 1.5) 
+
+                    -- 4. ปิดปุ่มกดวิ่ง (เพื่อไม่ให้ตัวละครทำท่ากระตุ้นม้า)
+                    DisableControlAction(0, 0x8FFC75D6, true) -- Sprint (Shift)
+                    DisableControlAction(0, 0xD8F73058, true) -- Gallop
+                
+                -- [กรณีเกือกม้าเริ่มพัง] -> ให้วิ่งเหยาะๆ ได้ (Trot)
+                elseif MyHorseShoeDurability <= (Config.Horseshoes.warningLevel or 20) then
+                    sleep = 0
+                    
+                    -- Trot Mode
+                    Citizen.InvokeNative(0xD2CB0FB0FDCB473D, currentMount, 2.0)
+                    Citizen.InvokeNative(0x469F2ECDEC04F841, currentMount, 5.0) 
+                    isLimiting = false -- รีเซ็ตสถานะเผื่อกลับไปพัง
+
+                -- [กรณีปกติ] -> ปลดล็อก
+                else
+                    if isLimiting or sleep == 1000 then -- เช็คเพื่อไม่ต้องส่งคำสั่งรัวเกินไป
+                        Citizen.InvokeNative(0xD2CB0FB0FDCB473D, currentMount, 3.0) -- ปลดล็อกท่าทาง
+                        Citizen.InvokeNative(0x469F2ECDEC04F841, currentMount, 50.0) -- ปลดล็อกความเร็ว
+                        isLimiting = false
+                    end
+                end
+            end
+        else
+            isLimiting = false
+        end
+        
+        Wait(sleep)
+    end
+end)
 
 CreateThread(function()
     StartPrompts()
@@ -582,6 +652,12 @@ function SpawnHorse(data)
     end
 
     MyHorseId = data.id
+
+    if Config.Horseshoes.enabled then
+        MyHorseShoeDurability = data.shoe_durability or 100
+        if Config.devMode then print('[DEBUG] Spawned. Shoes: '..MyHorseShoeDurability..'%') end
+    end
+
     HorseName = data.name
     local xp = data.xp
     local components = json.decode(data.components)
@@ -782,6 +858,8 @@ function SpawnHorse(data)
         TriggerEvent('bcc-stables:ManageHorseDeath')
         return
     end
+
+    if ApplyShoeEffects then ApplyShoeEffects() end
 
     Sending = true
     SendHorse()
@@ -1421,11 +1499,14 @@ function GetControlOfHorse()
     end
 end
 
+-- [DEBUG VERSION] แก้ไขลูปนับระยะทางให้ละเอียดและทำงานตลอดเวลา
 AddEventHandler('bcc-stables:HorseBonding', function()
     local trainingDistance = Config.trainingDistance
 
-    while not MaxBonding do
-        Wait(5000)
+    -- [แก้จุดที่ 1] เปลี่ยนจาก while not MaxBonding เป็น while MyHorse ~= 0
+    -- เพื่อให้ระบบนับระยะทางต่อแม้ Bonding เต็มแล้ว (สำหรับระบบเกือกม้า)
+    while MyHorse ~= 0 do
+        Wait(5000) -- เช็คทุก 5 วินาที
 
         local playerPed = PlayerPedId()
         local lastLed = Citizen.InvokeNative(0x693126B5D0457D0D, playerPed)   -- GetLastLedMount
@@ -1433,19 +1514,46 @@ AddEventHandler('bcc-stables:HorseBonding', function()
         local currentMount = Citizen.InvokeNative(0x4C8B59171957BCF7, playerPed) -- GetLastMount
         local isMounted = Citizen.InvokeNative(0x460BC76A0E10655E, playerPed) -- IsPedOnMount
 
-        if ((lastLed == MyHorse and isLeading) or (MyHorse == currentMount and isMounted)) then
+        -- [DEBUG] เช็คเงื่อนไขว่ากำลังขี่หรือจูงม้าตัวนี้อยู่ไหม
+        local isActive = ((lastLed == MyHorse and isLeading) or (MyHorse == currentMount and isMounted))
+        
+        if Config.devMode then
+            print(string.format("[DEBUG-LOOP] Active: %s | Mounted: %s | Leading: %s", tostring(isActive), tostring(isMounted), tostring(isLeading)))
+        end
+
+        if isActive then
             local currentCoords = GetEntityCoords(MyHorse)
 
             if LastLoc == nil then
                 LastLoc = currentCoords
+                if Config.devMode then print("[DEBUG-STEP] Start Tracking Location...") end
             else
                 local dist = #(LastLoc - currentCoords)
+                
+                -- [DEBUG] แจ้งระยะทางสะสมในรอบนี้ (Real-time display)
+                if Config.devMode then
+                    local msg = string.format("Distance: %.2f / %.2f", dist, trainingDistance)
+                    print("[DEBUG-DIST] " .. msg)
+                    Core.NotifyBottomRight(msg, 1000) -- แสดงมุมจอล่างขวาตลอด
+                end
+
                 if dist >= trainingDistance then
+                    if Config.devMode then print("[DEBUG-STEP] Distance Reached! Triggering SaveXp...") end
+                    
                     LastLoc = currentCoords
-                    SaveXp('travel')
+                    SaveXp('travel') -- เรียกบันทึก XP และหักเกือกม้า
                 end
             end
+        else
+            -- ถ้าไม่ได้ขี่อยู่ ให้รีเซ็ตจุดเริ่มใหม่ เพื่อกันระยะทางเพี้ยนตอนวาร์ป
+            if LastLoc ~= nil then
+                LastLoc = nil 
+                if Config.devMode then print("[DEBUG-STEP] Paused Tracking (Not riding/leading)") end
+            end
         end
+        
+        -- ถ้า Bonding เต็มแล้ว แต่เรายังอยากให้ลูปทำงานต่อเพื่อเกือกม้า เราจะไม่ Break
+        -- แต่ถ้าคุณอยากให้หยุด XP เมื่อเต็ม ก็ไปดักใน SaveXp เอา
     end
 end)
 
@@ -1458,23 +1566,69 @@ function SaveXp(xpSource)
         ['drink'] = Config.horseXpPerDrink
     }
 
+    if Config.devMode then print("-----------------------------------------------------") end
+    if Config.devMode then print("[DEBUG-SAVE] SaveXp Triggered. Source: " .. tostring(xpSource)) end
+
     horseXp = updateXp[xpSource]
     if not horseXp then
         return print('No xpSource Data!')
     end
 
-    Citizen.InvokeNative(0x75415EE0CB583760, MyHorse, 7, horseXp) -- AddAttributePoints
-
-    if Config.showXpMessage then
-        Core.NotifyRightTip('+ ' .. horseXp .. ' XP', 2000)
+    -- ส่วนเพิ่ม XP เดิม
+    local currentXp = Citizen.InvokeNative(0x219DA04BAA9CB065, MyHorse, 7, Citizen.ResultAsInteger())
+    local maxXp = Citizen.InvokeNative(0x223BF310F854871C, MyHorse, 7)
+    
+    if currentXp < maxXp then
+        Citizen.InvokeNative(0x75415EE0CB583760, MyHorse, 7, horseXp) -- AddAttributePoints
+        if Config.showXpMessage then Core.NotifyRightTip('+ ' .. horseXp .. ' XP', 2000) end
+        if Config.devMode then print("[DEBUG-XP] XP Added. New XP: " .. (currentXp + horseXp)) end
+    else
+        MaxBonding = true
+        if Config.devMode then print("[DEBUG-XP] Max Bonding Reached. No XP added.") end
     end
-
-    local maxXp = Citizen.InvokeNative(0x223BF310F854871C, MyHorse, 7) -- GetMaxAttributePoints
-    local newXp = Citizen.InvokeNative(0x219DA04BAA9CB065, MyHorse, 7, Citizen.ResultAsInteger()) -- GetAttributePoints
-
-    MaxBonding = newXp >= maxXp
-
+    
+    -- อัปเดต XP ลงฐานข้อมูล
+    local newXp = Citizen.InvokeNative(0x219DA04BAA9CB065, MyHorse, 7, Citizen.ResultAsInteger())
     TriggerServerEvent('bcc-stables:UpdateHorseXp', newXp, MyHorseId)
+
+    -- [DEBUG VERSION] ระบบคำนวณความเสียหายเกือกม้า
+    if Config.Horseshoes and Config.Horseshoes.enabled and xpSource == 'travel' and MyHorse ~= 0 then
+        if Config.devMode then print("[DEBUG-SHOE] Entering Decay Calculation...") end
+
+        local travelDist = Config.trainingDistance or 100.0
+        local decayTotalDist = Config.Horseshoes.decayDistance or 20000.0
+        
+        -- คำนวณค่าความเสียหายละเอียด
+        local decay = (travelDist / decayTotalDist) * 100
+        
+        if Config.devMode then 
+            print(string.format("[DEBUG-MATH] Travel: %.2f | MaxDist: %.2f | Decay: %.4f%%", travelDist, decayTotalDist, decay)) 
+        end
+
+        local oldVal = MyHorseShoeDurability or 100
+        MyHorseShoeDurability = oldVal - decay
+        
+        if MyHorseShoeDurability < 0 then MyHorseShoeDurability = 0 end
+
+        -- แสดงผลการเปลี่ยนแปลง
+        if Config.devMode then 
+            print(string.format("[DEBUG-RESULT] Shoes: %.4f%% -> %.4f%%", oldVal, MyHorseShoeDurability))
+            Core.NotifyRightTip(string.format("DEV: Shoes -%.2f%% (Cur: %.2f%%)", decay, MyHorseShoeDurability), 3000)
+        end
+
+        TriggerServerEvent('bcc-stables:UpdateShoeDurability', MyHorseId, math.floor(MyHorseShoeDurability))
+
+        -- แจ้งเตือนปกติ
+        local currentDurability = math.floor(MyHorseShoeDurability)
+        if currentDurability == Config.Horseshoes.warningLevel then
+            Core.NotifyRightTip("Warning: Horseshoes are worn out!", 4000)
+        elseif currentDurability <= 0 then
+            Core.NotifyRightTip("Danger: Horseshoes BROKEN!", 4000)
+        end
+
+        if ApplyShoeEffects then ApplyShoeEffects() end
+    end
+    if Config.devMode then print("-----------------------------------------------------") end
 end
 
 RegisterNetEvent('bcc-stables:BrushHorse', function()
@@ -2539,6 +2693,18 @@ function OpenHorseActionsMenu(horse)
         OpenHorseEquipmentMenu(horse) -- ไปเปิดเมนูย่อยใหม่
     end)
 
+    -- [NEW] Repair Horseshoes Button   
+    if Config.Horseshoes.enabled then
+        page:RegisterElement('button', {
+            label = "Repair Horseshoes ($"..Config.Horseshoes.repairCost..")",
+            desc = "Fix worn out horseshoes"
+        }, function()
+            -- ส่งเรื่องไป Server เพื่อหักเงินและซ่อม
+            TriggerServerEvent('bcc-stables:Server:RepairShoeCash', horse.id)
+            menu:Close()
+        end)
+    end
+
     -- 8. Rename
     page:RegisterElement('button', {
         label = "8. Rename",
@@ -3005,3 +3171,89 @@ function UpdateHorseComponents(horse, newCompsTable)
          end
     end
 end
+
+function ApplyShoeEffects()
+    -- เหลือไว้แค่ Ragdoll (ล้ม) ถ้าต้องการ หรือถ้าไม่เอาก็ลบไส้ในออกได้เลย
+    -- ส่วนเรื่องความเร็วให้ Loop ด้านบนจัดการอย่างเดียวครับ
+    if MyHorseShoeDurability <= 0 then
+         local slipChance = Config.Horseshoes.brokenEffect.slipChance or 5
+         if slipChance > 0 and math.random(1, 100) <= slipChance then
+             -- Citizen.InvokeNative(0x83CB5052129FB160, MyHorse, 0, 0, 0, 0) --Ragdoll
+         end
+    end
+end
+
+-- Event เมื่อกดใช้ไอเทมซ่อม (จาก Server)
+RegisterNetEvent('bcc-stables:Client:UseShoeRepairKit', function()
+    local playerPed = PlayerPedId()
+    local closestHorse = GetClosestHorse() -- ต้องเขียนฟังก์ชันหาหรือใช้ Native
+    
+    -- ถ้าไม่มีฟังก์ชัน GetClosestHorse ให้ใช้ Native นี้หา:
+    if not closestHorse then
+         closestHorse = Citizen.InvokeNative(0x0501D52D24EA8934, playerPed, 1, Citizen.ResultAsInteger()) -- GetMount
+    end
+
+    if closestHorse ~= 0 and closestHorse == MyHorse then
+        -- เริ่ม Animation และ Progress Bar
+        TaskStartScenarioInPlace(playerPed, "WORLD_HUMAN_HAMMER_TABLE", 0, true)
+        
+        -- VORP Progress Bar
+        exports.vorp_progressbar:start({
+            duration = Config.Horseshoes.repairTime,
+            label = "Replacing Horseshoes...",
+            useWhileDead = false,
+            canCancel = true,
+            controlDisables = { disableMovement = true, disableCombat = true },
+        }, function(cancelled)
+            ClearPedTasks(playerPed) 
+            if not cancelled then
+                -- ซ่อมสำเร็จ -> แจ้ง Server หักของและรีเซ็ตค่า
+                TriggerServerEvent('bcc-stables:Server:RepairShoeItem', MyHorseId)
+            end
+        end)
+    else
+        Core.NotifyRightTip("No owned horse nearby!", 4000)
+    end
+end)
+
+-- Event อัปเดตค่าเมื่อซ่อมเสร็จ
+RegisterNetEvent('bcc-stables:Client:ShoeRepaired', function(val)
+    MyHorseShoeDurability = val
+    Core.NotifyRightTip("Horseshoes condition: 100%", 4000)
+    -- รีเซ็ตความเร็วกลับเป็นปกติ (ถ้ามี)
+    -- Citizen.InvokeNative(0x5DA12E24E7BB5E89, MyHorse, 5, 1.0) -- หรือค่า Default
+    ApplyShoeEffects()
+end)
+
+RegisterCommand(Config.Horseshoes.checkCommand, function()
+    if MyHorse ~= 0 then
+        local status = math.floor(MyHorseShoeDurability)
+        
+        -- แก้ไข: ลบตัวแปร color และรหัสสี ^2, ^3, ^1 ออก
+        -- ให้แสดงข้อความปกติ
+        local msg = "Shoes Condition: " .. status .. "%"
+        
+        Core.NotifyRightTip(msg, 4000)
+    else
+        Core.NotifyRightTip("You are not with your horse.", 4000)
+    end
+end)
+
+-- Debug Commands
+if Config.devMode then
+    RegisterCommand('debug_setshoes', function(source, args)
+        if MyHorse ~= 0 and args[1] then
+            local val = tonumber(args[1])
+            MyHorseShoeDurability = val
+            TriggerServerEvent('bcc-stables:UpdateShoeDurability', MyHorseId, val)
+            ApplyShoeEffects()
+            print('^1[DEV] Set shoes to '..val..'%^0')
+            Core.NotifyRightTip("DEV: Set shoes to "..val.."%", 3000)
+        end
+    end)
+    
+    RegisterCommand('debug_breakshoes', function()
+        ExecuteCommand('debug_setshoes 0')
+    end)
+end
+
