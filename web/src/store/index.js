@@ -2,92 +2,73 @@ import { createStore } from "vuex";
 
 export default createStore({
   state: {
-    myHorses: null,
-    horses: null,
-    shopName: null,
-    comps: null,
-    activeHorse: null,
-    compCashPrice: 0,
-    compGoldPrice: 0,
-    showTackPrice: false,
-    allowSave: false,
-    currencyType: null,
+    visible: false,          // สถานะเปิด/ปิดเมนู
+    location: "Stable",      // ชื่อสถานที่
+    compData: {},
+    // ข้อมูลหลัก
+    myHorses: [],           // รายการม้าของฉัน
+    shopHorses: [],         // รายการม้าในร้าน (แยกตาม Breed)
+    
+    // สถานะการเลือก
+    currentTab: "owned",    // 'owned' (ม้าฉัน) หรือ 'shop' (ร้านค้า)
+    selectedHorse: null,    // ม้าที่กำลังคลิกดูอยู่
+    
+    // ค่าเงินและ config อื่นๆ
+    currencyType: 0,
     translations: {}
   },
-  getters: {
-    getTranslation: (state) => (key) => {
-      return state.translations[key] ?? ''
-    }
-  },
   mutations: {
-    SET_MY_HORSES(state, payload) {
-      state.myHorses = payload;
+    SET_VISIBLE(state, payload) {
+      state.visible = payload;
     },
-    SET_HORSES(state, payload) {
-      state.horses = payload;
+    SET_DASHBOARD_DATA(state, data) {
+      state.location = data.location;
+      state.myHorses = data.myHorses || [];
+      state.shopHorses = data.shopHorses || [];
+      state.currencyType = data.currencyType;
+      state.translations = data.translations || {};
+      state.compData = data.compData || {};
+      
+      // Reset การเลือกเมื่อเปิดใหม่
+      state.selectedHorse = null;
+      state.currentTab = "owned";
     },
-    SET_SHOP_NAME(state, payload) {
-      state.shopName = payload;
+    SET_TAB(state, tab) {
+      state.currentTab = tab;
+      state.selectedHorse = null; // เปลี่ยนแท็บแล้วล้างการเลือก
     },
-    SET_TRANSLATIONS(state, payload) {
-      state.translations = payload;
-    },
-    SET_COMPONENTS(state, payload) {
-      state.comps = payload;
-    },
-    SET_SELECTED_HORSE(state, payload) {
-      state.activeHorse = payload;
-    },
-    SET_COMP_CASH_PRICE(state, payload) {
-      state.compCashPrice = payload;
-    },
-    SET_COMP_GOLD_PRICE(state, payload) {
-      state.compGoldPrice = payload;
-    },
-    SET_SHOW_TACK_PRICE(state, payload) {
-      state.showTackPrice = payload;
-    },
-    SET_ALLOW_SAVE(state, payload) {
-      state.allowSave = payload;
-    },
-    SET_CURRENCY_TYPE(state, payload) {
-      state.currencyType = payload;
-    },
+    SET_SELECTED_HORSE(state, horse) {
+      state.selectedHorse = horse;
+    }
   },
   actions: {
-    setMyHorses(context, payload) {
-      context.commit("SET_MY_HORSES", payload);
+    openDashboard({ commit }, data) {
+      commit("SET_DASHBOARD_DATA", data);
+      commit("SET_VISIBLE", true);
     },
-    setHorses(context, payload) {
-      context.commit("SET_HORSES", payload);
+    closeDashboard({ commit }) {
+      commit("SET_VISIBLE", false);
     },
-    setShopName(context, payload) {
-      context.commit("SET_SHOP_NAME", payload);
+    selectTab({ commit }, tab) {
+      commit("SET_TAB", tab);
     },
-    setTranslations(context, payload) {
-      context.commit("SET_TRANSLATIONS", payload);
-    },
-    setComponents(context, payload) {
-      context.commit("SET_COMPONENTS", payload);
-    },
-    setSelectedHorse(context, payload) {
-      context.commit("SET_SELECTED_HORSE", payload);
-    },
-    setCompCashPrice(context, payload) {
-      context.commit("SET_COMP_CASH_PRICE", payload);
-    },
-    setCompGoldPrice(context, payload) {
-      context.commit("SET_COMP_GOLD_PRICE", payload);
-    },
-    setShowTackPrice(context, payload) {
-      context.commit("SET_SHOW_TACK_PRICE", payload);
-    },
-    setAllowSave(context, payload) {
-      context.commit("SET_ALLOW_SAVE", payload);
-    },
-    setCurrencyType(context, payload) {
-      context.commit("SET_CURRENCY_TYPE", payload);
+    selectHorse({ commit }, horse) {
+      commit("SET_SELECTED_HORSE", horse);
     }
   },
-  modules: {},
+  getters: {
+    // ดึงรายการม้าตามแท็บที่เลือก
+    currentList: (state) => {
+      if (state.currentTab === 'owned') {
+        return state.myHorses;
+      } else {
+        // สำหรับร้านค้า เราอาจจะต้องแปลง structure นิดหน่อยถ้า Lua ส่งมาซับซ้อน
+        // แต่ถ้า Lua ส่งมาเป็น List ของ Breed ก็ใช้ได้เลย
+        return state.shopHorses;
+      }
+    },
+    _U: (state) => (key) => {
+      return state.translations[key] || key;
+    }
+  }
 });
