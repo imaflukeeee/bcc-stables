@@ -6,6 +6,8 @@
       </div>
     </div>
     <div v-if="isOpen">
+      
+      <HorseStats :stats="horse.stats" />
       <div class="item" v-for="(color, model) in horse.colors" :key="model">
         <TraderMenuColor :horse="color" :model="model" />
       </div>
@@ -17,6 +19,8 @@
 // import api from "@/api";
 import { mapState } from "vuex";
 import TraderMenuColor from "./TraderMenuColor.vue";
+import HorseStats from "./HorseStats.vue"; // [เพิ่มบรรทัดนี้] นำเข้าไฟล์
+
 export default {
   name: "TraderMenuItem",
   props: {
@@ -40,6 +44,7 @@ export default {
   },
   components: {
     TraderMenuColor,
+    HorseStats,
   },
 };
 </script>

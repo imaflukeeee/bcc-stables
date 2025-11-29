@@ -2204,32 +2204,53 @@ function FindHorsesByJob(job)
                 horseJobs[horseJob] = true
             end
 
+            -- เตรียมข้อมูลของแต่ละสี
+            local horseInfo = {
+                color = horseColorData.color,
+                cashPrice = horseColorData.cashPrice,
+                goldPrice = horseColorData.goldPrice,
+                itemPrice = horseColorData.itemPrice,
+                invLimit = horseColorData.invLimit,
+                job = horseColorData.job
+            }
+
             if horseJobs[job] then
-                matchingColors[horseColor] = {
-                    color = horseColorData.color,
-                    cashPrice = horseColorData.cashPrice,
-                    goldPrice = horseColorData.goldPrice,
-                    itemPrice = horseColorData.itemPrice,
-                    invLimit = horseColorData.invLimit,
-                    job = horseColorData.job
-                }
+                matchingColors[horseColor] = horseInfo
             end
 
             if len(horseJobs) == 0 then
-                matchingColors[horseColor] = {
-                    color = horseColorData.color,
-                    cashPrice = horseColorData.cashPrice,
-                    goldPrice = horseColorData.goldPrice,
-                    itemPrice = horseColorData.itemPrice,
-                    invLimit = horseColorData.invLimit,
-                    job = nil
-                }
+                matchingColors[horseColor] = horseInfo
             end
         end
 
         if len(matchingColors) > 0 then
+            -- [ส่วนที่เพิ่ม] ดึงค่า Stats ทั้ง 6 ค่าจาก Config
+            local statsData = {
+                health = 0,
+                stamina = 0,
+                courage = 0,
+                agility = 0,
+                speed = 0,
+                acceleration = 0
+            }
+
+            -- ตรวจสอบว่ามี Config ของ Breed นี้ไหม
+            if Config.HorseStats and Config.HorseStats[horseType.breed] then
+                local cfg = Config.HorseStats[horseType.breed]
+                
+                -- ดึงค่ามาใส่ (ถ้าไม่มีใน config ให้เป็น 0)
+                statsData.health = cfg.health or 0
+                statsData.stamina = cfg.stamina or 0
+                statsData.courage = cfg.courage or 0
+                statsData.agility = cfg.agility or 0
+                statsData.speed = cfg.speed or 0
+                statsData.acceleration = cfg.acceleration or 0
+            end
+            -- [จบส่วนที่เพิ่ม]
+
             table.insert(matchingHorses, {
                 breed = horseType.breed,
+                stats = statsData, -- ส่งข้อมูล Stats ไปด้วย
                 colors = matchingColors
             })
         end
