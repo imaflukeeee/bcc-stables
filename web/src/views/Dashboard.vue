@@ -114,7 +114,7 @@
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/star-icon.png" class="white-icon-medium" /></div>
                         <div class="card-body"><h3 class="horse-name-show">Set Main</h3><p class="horse-breed-show">Favorite</p></div>
                     </div>
-                    <div class="showroom-card" @click="openEquipmentList">
+                    <div class="showroom-card" @click="manageEquipment">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-manage-icon.png" class="white-icon-medium" /></div>
                         <div class="card-body"><h3 class="horse-name-show">Equipment</h3><p class="horse-breed-show">Manage</p></div>
                     </div>
@@ -122,6 +122,80 @@
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/release-icon.png" class="white-icon-medium" /></div>
                         <div class="card-body"><h3 class="horse-name-show text-danger">Release</h3><p class="horse-breed-show">Delete</p></div>
                     </div>
+                </div>
+            </div>
+
+            <div v-else-if="subMode === 'equipment_cat' && selectedHorse" class="manage-action-view">
+                <div class="selected-horse-header">
+                    <h1>Manage Equipment</h1>
+                    <div class="sub-info">Select a category to view owned items</div>
+                </div>
+                
+                <div v-if="!hasAnyOwnedItems" class="empty-notif">
+                    <h2>No Equipment Owned</h2>
+                    <p>Go to "Decorate" menu to buy items first.</p>
+                </div>
+
+                <div v-else class="carousel-container-wide">
+                    <button class="nav-arrow left" @click="scrollLeftCat">❮</button>
+
+                    <div class="decor-grid-6">
+                        <div 
+                            v-for="(category, index) in visibleOwnedCats" 
+                            :key="index" 
+                            class="showroom-card"
+                            @click="openEquipmentItems(category)"
+                        >
+                            <div class="card-center-icon">
+                                <img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" />
+                            </div>
+                            <div class="card-body">
+                               <h3 class="horse-name-show">{{ formatCategoryName(category) }}</h3>
+                               <p class="horse-breed-show">{{ getOwnedCountInCategory(category) }} Items</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="nav-arrow right" @click="scrollRightCat">❯</button>
+                </div>
+                
+                <div style="position:absolute; bottom: 30px; color: #666; font-size: 12px;">
+                    Use Arrow Keys ◀ ▶ to browse
+                </div>
+            </div>
+
+            <div v-else-if="subMode === 'equipment_item' && selectedHorse" class="manage-action-view">
+                <div class="selected-horse-header">
+                    <h1>{{ formatCategoryName(selectedDecorCategory) }}</h1>
+                    <div class="sub-info">Manage your owned items</div>
+                </div>
+
+                <div class="carousel-container">
+                    <div class="decor-selector-center">
+                        
+                        <div class="status-badge" :class="isEquipped(currentDecorItem.hash) ? 'equipped' : 'stored'">
+                            {{ isEquipped(currentDecorItem.hash) ? 'EQUIPPED' : 'IN INVENTORY' }}
+                        </div>
+
+                        <h2 class="decor-item-name">Item {{ currentDecorIndex + 1 }}</h2>
+                        
+                        <div class="decor-nav-row">
+                            <button class="nav-arrow" @click="prevItem">❮</button>
+                            <span class="decor-counter">{{ currentDecorIndex + 1 }} / {{ currentCategoryItems.length }}</span>
+                            <button class="nav-arrow" @click="nextItem">❯</button>
+                        </div>
+
+                        <button v-if="isEquipped(currentDecorItem.hash)" class="buy-btn-small btn-danger" @click="toggleEquip(currentDecorItem.hash, false)">
+                            UNEQUIP
+                        </button>
+                        <button v-else class="buy-btn-small" @click="toggleEquip(currentDecorItem.hash, true)">
+                            EQUIP
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="position:absolute; bottom: 30px; color: #666; font-size: 12px;">
+                    Use Arrow Keys ◀ ▶ to change items
                 </div>
             </div>
 
@@ -153,10 +227,6 @@
 
                     <button class="nav-arrow right" @click="scrollRightCat">❯</button>
                 </div>
-                
-                <div style="position:absolute; bottom: 30px; color: #666; font-size: 12px;">
-                    Use Arrow Keys ◀ ▶ to browse categories
-                </div>
             </div>
 
             <div v-else-if="subMode === 'decorate_item' && selectedHorse" class="manage-action-view">
@@ -179,32 +249,6 @@
                         <button class="buy-btn-small" @click="buyDecoration">
                             BUY / EQUIP
                         </button>
-                    </div>
-                </div>
-                
-                <div style="position:absolute; bottom: 30px; color: #666; font-size: 12px;">
-                    Use Arrow Keys ◀ ▶ to change items
-                </div>
-            </div>
-
-            <div v-else-if="subMode === 'equipment' && selectedHorse" class="manage-action-view">
-                <div class="selected-horse-header">
-                    <h1>Equipment</h1>
-                    <div class="sub-info">Select an item to unequip</div>
-                </div>
-                <div class="bottom-showroom-list">
-                    <div class="showroom-card danger-card" @click="unequipAll">
-                        <div class="card-center-icon">
-                           <i class="fas fa-trash-alt white-icon-medium" style="font-size:32px; display:flex; justify-content:center; align-items:center;"></i>
-                        </div>
-                        <div class="card-body">
-                           <h3 class="horse-name-show text-danger">Unequip All</h3>
-                           <p class="horse-breed-show">Clear All</p>
-                        </div>
-                    </div>
-                    <div v-for="(compHash, idx) in getEquippedItems(selectedHorse)" :key="idx" class="showroom-card" @click="unequipItem(compHash)">
-                        <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">Item {{ idx + 1 }}</h3><p class="horse-breed-show">Click to Remove</p></div>
                     </div>
                 </div>
             </div>
@@ -285,7 +329,6 @@ import { mapState, mapGetters } from 'vuex';
 import HorseStats from '@/components/HorseStats.vue'; 
 import api from '@/api';
 
-// eslint-disable-next-line vue/multi-word-component-names
 export default {
   name: "StableDashboard",
   components: { HorseStats },
@@ -309,25 +352,63 @@ export default {
         if (!this.compData) return [];
         return Object.keys(this.compData).sort();
     },
-    visibleDecorCats() {
-        const list = this.decorCategoryList;
+    
+    // --- OWNED EQUIPMENT LOGIC (NEW) ---
+    ownedItemsList() {
+        if (!this.selectedHorse) return [];
+        let owned = [];
+        try {
+            // 1. ของที่ซื้อเก็บไว้
+            if (this.selectedHorse.owned_components && this.selectedHorse.owned_components !== '[]') {
+                const parsedOwned = JSON.parse(this.selectedHorse.owned_components);
+                owned = [...parsedOwned];
+            }
+            // 2. ของที่ใส่อยู่ (ต้องนับว่าเป็นของที่มีด้วย)
+            if (this.selectedHorse.components && this.selectedHorse.components !== '[]') {
+                const equipped = JSON.parse(this.selectedHorse.components);
+                owned = [...owned, ...equipped];
+            }
+            // ลบตัวซ้ำ
+            owned = [...new Set(owned)];
+        } catch (e) { 
+            console.log("Error parsing components"); 
+        }
+        return owned.map(Number);
+    },
+    hasAnyOwnedItems() {
+        return this.ownedItemsList.length > 0;
+    },
+    ownedCategories() {
+        // กรองหาหมวดที่มีของอย่างน้อย 1 ชิ้น
+        if (!this.compData) return [];
+        return this.decorCategoryList.filter(cat => this.getOwnedCountInCategory(cat) > 0);
+    },
+    visibleOwnedCats() {
+        const list = this.ownedCategories;
         if (!list.length) return [];
         return list.slice(this.scrollOffsetCat, this.scrollOffsetCat + 6);
     },
-    // [FIX] แปลง Object เป็น Array เพื่อให้ชัวร์
+    visibleDecorCats() {
+        // สำหรับหน้า Shop (แสดงทุกหมวด)
+        const list = this.decorCategoryList;
+        return list.slice(this.scrollOffsetCat, this.scrollOffsetCat + 6);
+    },
+    
     currentCategoryItems() {
         if (!this.selectedDecorCategory || !this.compData) return [];
-        const rawData = this.compData[this.selectedDecorCategory];
+        let items = this.compData[this.selectedDecorCategory];
+        if (typeof items === 'object' && !Array.isArray(items)) items = Object.values(items);
         
-        if (Array.isArray(rawData)) return rawData;
-        if (typeof rawData === 'object' && rawData !== null) return Object.values(rawData);
-        
-        return [];
+        // ถ้าอยู่ในโหมดจัดการอุปกรณ์ (Equipment) ให้กรองเอาเฉพาะของที่มี
+        if (this.subMode === 'equipment_item') {
+            const owned = this.ownedItemsList;
+            return items.filter(item => owned.includes(Number(item.hash)));
+        }
+        // ถ้าอยู่หน้า Shop (Decorate) ให้แสดงทั้งหมด
+        return items; 
     },
     currentDecorItem() {
-        const items = this.currentCategoryItems;
-        if (items.length === 0) return {};
-        return items[this.currentDecorIndex] || {};
+        return this.currentCategoryItems[this.currentDecorIndex] || {};
     }
   },
   
@@ -345,57 +426,45 @@ export default {
           }
       },
       selectedColorModel(newVal) { if (this.currentTab === 'shop' && newVal) this.previewHorse(newVal); },
-      currentDecorIndex() { if (this.subMode === 'decorate_item') this.previewDecoration(); }
+      currentDecorIndex() { 
+          // Preview เฉพาะตอนอยู่หน้า Shop
+          if (this.subMode === 'decorate_item') this.previewDecoration(); 
+      }
   },
   methods: {
-    // [NEW] Helper function to get price safely
-    getItemPrice(item) {
-        if (!item) return 0;
-        // เพิ่ม item.cashPrice เข้าไปเป็นตัวแรกสุด
-        return item.cashPrice || item.price || item.cash || item.cost || 0;
-    },
+    getItemPrice(item) { return item.cashPrice || item.price || item.cash || 0; },
+    
     handleKeydown(e) {
-        if (this.subMode === 'decorate_item') {
+        if (this.subMode === 'decorate_item' || this.subMode === 'equipment_item') {
             if (e.key === 'ArrowLeft') this.prevItem();
             if (e.key === 'ArrowRight') this.nextItem();
         }
-        if (this.subMode === 'decorate_cat') {
+        if (this.subMode === 'decorate_cat' || this.subMode === 'equipment_cat') {
             if (e.key === 'ArrowLeft') this.scrollLeftCat();
             if (e.key === 'ArrowRight') this.scrollRightCat();
         }
     },
-    goToShop() { this.switchTab('shop'); },
+    
+    goToShop() { this.$store.dispatch('selectTab', 'shop'); this.subMode = 'list'; },
     onHorseHover(horse) {
         if (this.currentTab === 'owned') { this.previewMyHorse(horse); } 
-        else if (this.currentTab === 'shop') { 
-            if (horse.colors) { const firstModel = Object.keys(horse.colors)[0]; this.previewHorse(firstModel); } 
-        }
+        else if (this.currentTab === 'shop' && horse.colors) { this.previewHorse(Object.keys(horse.colors)[0]); }
     },
-    enterMode(mode) {
-      this.$store.dispatch('selectTab', mode);
-      this.viewMode = 'content';
-      this.subMode = 'list';
-    },
+    enterMode(mode) { this.$store.dispatch('selectTab', mode); this.viewMode = 'content'; this.subMode = 'list'; },
+    
     getBackLabel() {
-        if (this.subMode === 'decorate_item') return 'CATEGORIES';
-        if (this.subMode === 'decorate_cat') return 'ACTIONS';
-        if (this.subMode === 'equipment') return 'ACTIONS';
+        if (['decorate_item', 'equipment_item'].includes(this.subMode)) return 'CATEGORIES';
+        if (['decorate_cat', 'equipment_cat'].includes(this.subMode)) return 'ACTIONS';
         if (this.subMode === 'actions') return 'HORSE LIST';
         return 'HOME';
     },
     handleBack() {
         if (this.currentTab === 'owned') {
-            if (this.subMode === 'decorate_item') {
-                this.subMode = 'decorate_cat';
-                return;
-            }
-            if (this.subMode === 'decorate_cat') {
-                this.subMode = 'actions';
-                this.previewMyHorse(this.selectedHorse); 
-                return;
-            }
-            if (this.subMode === 'equipment') {
-                this.subMode = 'actions';
+            if (this.subMode === 'decorate_item') { this.subMode = 'decorate_cat'; return; }
+            if (this.subMode === 'equipment_item') { this.subMode = 'equipment_cat'; return; }
+            if (this.subMode === 'decorate_cat' || this.subMode === 'equipment_cat') {
+                this.subMode = 'actions'; 
+                this.previewMyHorse(this.selectedHorse); // Reset preview to original horse
                 return;
             }
             if (this.subMode === 'actions') {
@@ -411,27 +480,13 @@ export default {
       this.$store.dispatch('selectHorse', null);
       api.post("loadHorse", { horseModel: 'CLEAR' });
     },
-    switchTab(tab) { this.$store.dispatch('selectTab', tab); this.subMode = 'list'; },
     selectHorse(horse) {
       this.$store.dispatch('selectHorse', horse);
       if (this.currentTab === 'owned') { this.subMode = 'actions'; }
     },
-    isSelected(horse) {
-      return this.selectedHorse && (
-          (this.currentTab === 'owned' && this.selectedHorse.id === horse.id) || 
-          (this.currentTab === 'shop' && this.selectedHorse.breed === horse.breed)
-      );
-    },
     getHorseName(horse) { return horse.name || horse.breed || "Unknown Horse"; },
-    getBondingLevel(xp) {
-        if (xp >= 2400) return 4; if (xp >= 1700) return 3; if (xp >= 900) return 2; return 1;
-    },
-    getSelectedPrice() {
-        if (this.selectedHorse && this.selectedHorse.colors && this.selectedColorModel) {
-            return this.selectedHorse.colors[this.selectedColorModel].cashPrice;
-        }
-        return 0;
-    },
+    getBondingLevel(xp) { if (xp >= 2400) return 4; if (xp >= 1700) return 3; if (xp >= 900) return 2; return 1; },
+    getSelectedPrice() { return (this.selectedHorse && this.selectedHorse.colors && this.selectedColorModel) ? this.selectedHorse.colors[this.selectedColorModel].cashPrice : 0; },
     closeMenu() {
       api.post("CloseStable", { MenuAction: "Close" });
       this.$store.dispatch('closeDashboard');
@@ -440,23 +495,30 @@ export default {
     previewHorse(modelName) { api.post("loadHorse", { horseModel: modelName }); },
     previewMyHorse(horse) { api.post("loadMyHorse", { HorseModel: horse.model, HorseComp: horse.components, HorseId: horse.id, HorseGender: horse.gender }); },
     
+    // --- CATEGORY & NAVIGATION LOGIC ---
     openDecorateCategories() {
         api.post("selectHorse", { horseId: this.selectedHorse.id });
-        this.subMode = 'decorate_cat';
-        this.scrollOffsetCat = 0;
+        this.subMode = 'decorate_cat'; this.scrollOffsetCat = 0;
     },
-    scrollLeftCat() {
-        if (this.scrollOffsetCat > 0) this.scrollOffsetCat--;
+    // [NEW] เปิดเมนูจัดการอุปกรณ์ (Owned)
+    manageEquipment() {
+        api.post("selectHorse", { horseId: this.selectedHorse.id });
+        this.subMode = 'equipment_cat'; this.scrollOffsetCat = 0;
     },
-    scrollRightCat() {
-        if (this.scrollOffsetCat + 6 < this.decorCategoryList.length) this.scrollOffsetCat++;
+    scrollLeftCat() { if (this.scrollOffsetCat > 0) this.scrollOffsetCat--; },
+    scrollRightCat() { 
+        const list = (this.subMode === 'equipment_cat') ? this.ownedCategories : this.decorCategoryList;
+        if (this.scrollOffsetCat + 6 < list.length) this.scrollOffsetCat++;
     },
+    
     openDecorateItems(category) {
-        this.selectedDecorCategory = category;
-        this.currentDecorIndex = 0;
-        this.subMode = 'decorate_item';
-        this.previewDecoration();
+        this.selectedDecorCategory = category; this.currentDecorIndex = 0; this.subMode = 'decorate_item'; this.previewDecoration();
     },
+    openEquipmentItems(category) {
+        this.selectedDecorCategory = category; this.currentDecorIndex = 0; this.subMode = 'equipment_item';
+        // ไม่ต้อง Preview เพราะจะโชว์ของที่มีอยู่แล้ว
+    },
+    
     nextItem() {
         if (this.currentDecorIndex < this.currentCategoryItems.length - 1) this.currentDecorIndex++;
         else this.currentDecorIndex = 0;
@@ -465,37 +527,59 @@ export default {
         if (this.currentDecorIndex > 0) this.currentDecorIndex--;
         else this.currentDecorIndex = this.currentCategoryItems.length - 1;
     },
+    
     previewDecoration() {
         const item = this.currentDecorItem;
         const price = this.getItemPrice(item);
         if (item && item.hash) { api.post(this.selectedDecorCategory, { hash: item.hash, price: price, id: 0 }); }
     },
     
-    // [FIX] Buy Decoration Logic (Revised)
     buyDecoration() {
         const item = this.currentDecorItem;
-        if (!item || typeof item.hash === 'undefined') return;
-        
-        // 1. ดึงราคา (ทั้ง Cash และ Gold) จาก Config โดยตรง
-        // Server บังคับว่าต้องมีค่าส่งไปทั้งคู่ ไม่งั้นจะซื้อไม่ผ่าน
+        if (!item || !item.hash) return;
         const cashCost = item.cashPrice || item.price || 0;
         const goldCost = item.goldPrice || 0;
         
-        // 2. ส่ง Preview ไปที่ Client (เพื่อให้ตัวแปร Global จำค่า hash นี้ไว้)
+        // 1. Preview
         api.post(this.selectedDecorCategory, { hash: item.hash, price: cashCost, id: 0 });
         
-        // 3. ส่งคำสั่ง Save พร้อมราคาที่ถูกต้องทั้ง 2 สกุลเงิน
-        api.post("CloseStable", { 
-            MenuAction: "save",
-            cashPrice: cashCost,
-            goldPrice: goldCost, // ต้องส่งค่านี้ไปตามจริง แม้จะจ่ายด้วย Cash ก็ตาม
-            currencyType: 0,     // 0 = จ่ายด้วยเงินสด, 1 = จ่ายด้วยทอง
-        });
+        // 2. Buy & Save Equipped
+        api.post("CloseStable", { MenuAction: "save", cashPrice: cashCost, goldPrice: goldCost, currencyType: 0 });
+        
+        // 3. [IMPORTANT] Save Ownership Record
+        api.post("horseAction", { action: 'saveOwned', horseId: this.selectedHorse.id, componentHash: item.hash });
         
         setTimeout(() => this.closeMenu(), 500);
     },
-    formatCategoryName(name) { return name.replace(/([A-Z])/g, ' $1').trim(); },
 
+    // --- EQUIPMENT MANAGEMENT HELPER ---
+    getOwnedCountInCategory(category) {
+        const items = this.compData[category];
+        if (!items) return 0;
+        const list = Array.isArray(items) ? items : Object.values(items);
+        const owned = this.ownedItemsList;
+        return list.filter(item => owned.includes(Number(item.hash))).length;
+    },
+    isEquipped(hash) {
+        try {
+            const equipped = JSON.parse(this.selectedHorse.components || '[]');
+            return equipped.includes(Number(hash));
+        } catch(e) { return false; }
+    },
+    toggleEquip(hash, equip) {
+        if (equip) {
+            // ใส่ของ (ใช้ระบบใส่ของที่มีอยู่แล้ว ไม่เสียเงิน)
+            api.post("horseAction", { action: 'equipOwned', horseId: this.selectedHorse.id, componentHash: hash });
+        } else {
+            // ถอดของ
+            api.post("horseAction", { action: 'unequipOne', horseId: this.selectedHorse.id, componentHash: hash });
+        }
+        setTimeout(() => this.closeMenu(), 300);
+    },
+
+    formatCategoryName(name) { return name ? name.replace(/([A-Z])/g, ' $1').trim() : ''; },
+    isSelected(horse) { return this.selectedHorse && ((this.currentTab === 'owned' && this.selectedHorse.id === horse.id) || (this.currentTab === 'shop' && this.selectedHorse.breed === horse.breed)); },
+    
     performAction(action) {
         if (!this.selectedHorse) return;
         if (action === 'decorate') { this.openDecorateCategories(); return; }
@@ -503,12 +587,7 @@ export default {
         if (['call', 'return', 'release'].includes(action)) this.closeMenu();
         if (['heal', 'setMain'].includes(action)) setTimeout(() => this.closeMenu(), 300);
     },
-    manageEquipment() { this.subMode = 'equipment'; },
-    getEquippedItems(horse) {
-        try { if (!horse.components || horse.components === '[]') return []; return JSON.parse(horse.components); } catch (e) { return []; }
-    },
-    unequipAll() { this.performAction('unequipAll'); this.subMode = 'actions'; },
-    unequipItem(hash) { api.post("horseAction", { action: 'unequipOne', horseId: this.selectedHorse.id, componentHash: hash }); setTimeout(() => this.closeMenu(), 300); },
+    
     buyHorse() {
         if(!this.selectedColorModel) return;
         api.post("BuyHorse", { ModelH: this.selectedColorModel, name: this.newHorseName, currencyType: "cash", isTrainer: false });
@@ -520,164 +599,50 @@ export default {
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Pridi:wght@300;400;500;600;700&display=swap');
-
 * { font-family: 'Pridi', serif !important; }
+.dashboard-container { display: flex; width: 100vw; height: 100vh; position: relative; color: #f0f0f0; }
+.flat-panel { background: rgba(15, 15, 15, 0.96); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 4px; }
 
-.dashboard-container {
-  display: flex; width: 100vw; height: 100vh; position: relative;
-  color: #f0f0f0;
-}
+/* Status Badge (New) */
+.status-badge { padding: 5px 15px; border-radius: 4px; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px; }
+.status-badge.equipped { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+.status-badge.stored { background: rgba(255, 255, 255, 0.1); color: #aaa; border: 1px solid #666; }
 
-.flat-panel {
-  background: rgba(15, 15, 15, 0.96); 
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
+.btn-danger { background: #c0392b; color: #fff; }
+.btn-danger:hover { background: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.4); }
 
-/* ================= CAROUSEL SLIDER (DECORATE) ================= */
-.carousel-container {
-    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
-    display: flex; 
-    flex-direction: column; /* แนวตั้งสำหรับ Item Selector */
-    align-items: center; 
-    gap: 10px;
-    z-index: 20;
-}
+.empty-notif { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #888; }
+.empty-notif h2 { color: #fff; font-size: 24px; margin-bottom: 10px; }
 
-/* [NEW] Wide container for Category Grid (6 Items) */
-.carousel-container-wide {
-    position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
-    display: flex; 
-    flex-direction: row; 
-    align-items: center; 
-    gap: 20px;
-    z-index: 20;
-}
-
-.decor-grid-6 {
-    display: flex; gap: 15px;
-}
-
-.nav-arrow {
-    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-    color: #fff; width: 50px; height: 50px; border-radius: 50%;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 24px; transition: 0.2s;
-    font-family: Arial, sans-serif !important;
-}
+/* ... Styles เดิม ... */
+.carousel-container { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 20; }
+.carousel-container-wide { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: row; align-items: center; gap: 20px; z-index: 20; }
+.decor-grid-6 { display: flex; gap: 15px; }
+.nav-arrow { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.2s; font-family: Arial, sans-serif !important; }
 .nav-arrow:hover { background: #fff; color: #000; transform: scale(1.1); }
+.decor-selector-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; text-shadow: 0 2px 5px rgba(0,0,0,0.8); }
+.decor-item-name { font-size: 42px; margin: 0; font-weight: 600; color: #fff; letter-spacing: 1px; }
+.decor-nav-row { display: flex; align-items: center; gap: 15px; font-size: 16px; color: #ddd; }
+.buy-btn-small { margin-top: 15px; padding: 10px 40px; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; border-radius: 30px; font-size: 13px; letter-spacing: 1px; transition: 0.2s; box-shadow: 0 0 10px rgba(255,255,255,0.2); }
+.buy-btn-small:hover { background: #d4af37; color: #fff; transform: translateY(-2px); box-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
 
-/* Item Selector (Minimal) */
-.decor-selector-center {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; text-align: center;
-    text-shadow: 0 2px 5px rgba(0,0,0,0.8);
-}
-
-.decor-item-name {
-    font-size: 42px; margin: 0; font-weight: 600; color: #fff; letter-spacing: 1px;
-}
-.decor-nav-row {
-    display: flex; align-items: center; gap: 15px;
-    font-size: 16px; color: #ddd;
-}
-
-.buy-btn-small {
-    margin-top: 15px;
-    padding: 10px 40px; background: #fff; color: #000;
-    border: none; font-weight: bold; cursor: pointer; text-transform: uppercase;
-    border-radius: 30px; font-size: 13px; letter-spacing: 1px;
-    transition: 0.2s; box-shadow: 0 0 10px rgba(255,255,255,0.2);
-}
-.buy-btn-small:hover { 
-    background: #d4af37; color: #fff; transform: translateY(-2px);
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
-}
-
-/* ... (CSS ส่วนอื่นๆ เหมือนเดิม) ... */
-/* ================= EMPTY STATE ================= */
-.empty-state-view {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    display: flex; flex-direction: column; 
-    justify-content: center; align-items: center;
-    background: rgba(0,0,0,0.6); z-index: 5;
-}
+.empty-state-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); z-index: 5; }
 .empty-content { text-align: center; }
-.white-icon-large {
-    width: 120px; height: 120px; object-fit: contain;
-    filter: brightness(0) invert(1);
-    opacity: 0.5; margin-bottom: 20px;
-}
+.white-icon-large { width: 120px; height: 120px; object-fit: contain; filter: brightness(0) invert(1); opacity: 0.5; margin-bottom: 20px; }
 .empty-content h2 { margin: 0; font-size: 36px; font-weight: 600; color: #fff; letter-spacing: 2px; }
 .empty-content p { font-size: 16px; color: #888; margin-top: 10px; font-weight: 300; }
-
-
-/* ================= NAVIGATION ================= */
-.floating-back-btn {
-    position: absolute; top: 40px; left: 40px;
-    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
-    color: #fff; padding: 10px 20px; border-radius: 30px;
-    font-family: inherit; font-weight: 500; cursor: pointer;
-    display: flex; align-items: center; gap: 5px; z-index: 100;
-    transition: 0.3s;
-}
+.floating-back-btn { position: absolute; top: 40px; left: 40px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 10px 20px; border-radius: 30px; font-family: inherit; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; z-index: 100; transition: 0.3s; }
 .floating-back-btn:hover { background: #fff; color: #000; border-color: #fff; }
-
-.close-btn {
-  position: absolute; top: 30px; right: 30px;
-  background: transparent; border: none; color: #666;
-  font-size: 20px; cursor: pointer; transition: 0.3s; z-index: 100;
-}
+.close-btn { position: absolute; top: 30px; right: 30px; background: transparent; border: none; color: #666; font-size: 20px; cursor: pointer; transition: 0.3s; z-index: 100; }
 .close-btn:hover { color: #fff; transform: rotate(90deg); }
-
-/* ================= MANAGE STABLE (BOTTOM LIST) ================= */
-.bottom-showroom-list {
-    position: absolute; bottom: 40px; left: 50%; 
-    transform: translateX(-50%);
-    width: 90%; 
-    height: 200px; 
-    display: flex; justify-content: center; align-items: center; gap: 20px;
-    overflow-x: auto; 
-    padding-top: 25px; 
-    padding-bottom: 10px;
-    z-index: 10;
-}
-
-.action-menu-list {
-    bottom: 120px; 
-}
-
+.bottom-showroom-list { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 90%; height: 200px; display: flex; justify-content: center; align-items: center; gap: 20px; overflow-x: auto; padding-top: 25px; padding-bottom: 10px; z-index: 10; }
+.action-menu-list { bottom: 120px; }
 .bottom-showroom-list::-webkit-scrollbar { height: 6px; }
 .bottom-showroom-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 3px; }
 .bottom-showroom-list::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
-
-.showroom-card {
-    min-width: 145px; height: 145px; 
-    background: rgba(22, 22, 22, 0.9);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
-    display: flex; flex-direction: column; 
-    padding: 15px; 
-    cursor: pointer;
-    position: relative; 
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    justify-content: center; align-items: center;
-    gap: 15px; 
-}
-
-.showroom-card:hover {
-    transform: translateY(-10px);
-    background: rgba(35, 35, 35, 0.95);
-    border-color: rgba(255,255,255,0.3);
-}
-
-.showroom-card.selected {
-    border-color: #fff;
-    background: rgba(50, 50, 50, 0.95);
-    box-shadow: 0 0 15px rgba(255,255,255,0.1);
-    transform: translateY(-10px);
-}
-
+.showroom-card { min-width: 145px; height: 145px; background: rgba(22, 22, 22, 0.9); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; display: flex; flex-direction: column; padding: 15px; cursor: pointer; position: relative; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); justify-content: center; align-items: center; gap: 15px; }
+.showroom-card:hover { transform: translateY(-10px); background: rgba(35, 35, 35, 0.95); border-color: rgba(255,255,255,0.3); }
+.showroom-card.selected { border-color: #fff; background: rgba(50, 50, 50, 0.95); box-shadow: 0 0 15px rgba(255,255,255,0.1); transform: translateY(-10px); }
 .card-corner-tl { position: absolute; top: 8px; left: 8px; z-index: 2; }
 .card-corner-tr { position: absolute; top: 8px; right: 8px; z-index: 2; }
 .horse-level { font-size: 10px; color: #aaa; background: rgba(0,0,0,0.5); padding: 1px 4px; border-radius: 3px; font-weight: 500; }
@@ -694,23 +659,10 @@ export default {
 .showroom-card.disabled { opacity: 0.4; pointer-events: none; filter: grayscale(1); }
 .showroom-card.danger-card:hover { border-color: #c0392b; background: rgba(192, 57, 43, 0.2); }
 .text-danger { color: #e74c3c; }
-
-/* ================= STATE 2: ACTION MENU VIEW ================= */
-.manage-action-view {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    display: flex; flex-direction: column; justify-content: flex-end; 
-    align-items: center; padding-bottom: 50px;
-    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent 50%);
-    z-index: 5;
-}
-.selected-horse-header {
-    position: absolute; top: 5%; left: 0; width: 100%;
-    text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,0.8); pointer-events: none; z-index: 20;
-}
+.manage-action-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 50px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent 50%); z-index: 5; }
+.selected-horse-header { position: absolute; top: 5%; left: 0; width: 100%; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,0.8); pointer-events: none; z-index: 20; }
 .selected-horse-header h1 { font-size: 48px; margin: 0; font-weight: 600; color: #fff; letter-spacing: 2px; }
 .selected-horse-header .sub-info { font-size: 16px; color: #ccc; margin-top: 5px; font-weight: 300; }
-
-/* ================= SHOP LAYOUT (SIDEBAR) ================= */
 .sidebar { width: 360px; height: 85%; margin: auto 0 auto 60px; display: flex; flex-direction: column; padding: 25px; }
 .sidebar-header { margin-bottom: 20px; }
 .stable-title { font-size: 20px; margin: 0; color: #fff; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
@@ -723,8 +675,6 @@ export default {
 .card-info p { font-size: 12px; color: #666; margin: 0; }
 .price-text { color: #fff; font-weight: 600; font-size: 13px; }
 .details-panel { position: absolute; right: 60px; bottom: 60px; width: 340px; padding: 30px; }
-
-/* ================= HOME MENU STYLE ================= */
 .home-menu { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); }
 .showroom-header { text-align: center; margin-bottom: 60px; }
 .showroom-header h1 { font-size: 56px; margin: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 4px; color: #fff; }
@@ -740,13 +690,9 @@ export default {
 .menu-card:hover p { color: #aaa; }
 .close-btn-home { margin-top: 60px; padding: 10px 40px; background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #888; font-family: inherit; font-size: 13px; letter-spacing: 2px; border-radius: 30px; cursor: pointer; transition: all 0.3s; }
 .close-btn-home:hover { border-color: #fff; color: #fff; letter-spacing: 3px; }
-
-/* ================= ICONS ================= */
 .white-icon { width: 90px; height: 90px; object-fit: contain; filter: brightness(0) invert(1); opacity: 0.8; transition: all 0.4s ease; }
 .menu-card:hover .white-icon { opacity: 1; transform: scale(1.08); filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(255,255,255,0.3)); }
 .white-icon-small { width: 20px; height: 20px; object-fit: contain; filter: brightness(0) invert(1); opacity: 0.8; }
-
-/* ================= SHARED COMPONENTS ================= */
 .details-header h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: 1px; }
 .sub-info { color: #666; font-size: 14px; margin-bottom: 25px; margin-top: 5px; }
 .action-bar { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
