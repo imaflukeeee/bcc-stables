@@ -608,8 +608,8 @@ export default {
 .status-badge.equipped { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
 .status-badge.stored { background: rgba(255, 255, 255, 0.1); color: #aaa; border: 1px solid #666; }
 
-.btn-danger { background: #c0392b; color: #fff; }
-.btn-danger:hover { background: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.4); }
+.btn-danger { background: #c0392b; color: #fff; box-shadow: none !important; }
+.btn-danger:hover { background: #e74c3c; box-shadow: none !important; }
 
 .empty-notif { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #888; }
 .empty-notif h2 { color: #fff; font-size: 24px; margin-bottom: 10px; }
@@ -623,8 +623,8 @@ export default {
 .decor-selector-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; text-shadow: 0 2px 5px rgba(0,0,0,0.8); }
 .decor-item-name { font-size: 42px; margin: 0; font-weight: 600; color: #fff; letter-spacing: 1px; }
 .decor-nav-row { display: flex; align-items: center; gap: 15px; font-size: 16px; color: #ddd; }
-.buy-btn-small { margin-top: 15px; padding: 10px 40px; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; border-radius: 30px; font-size: 13px; letter-spacing: 1px; transition: 0.2s; box-shadow: 0 0 10px rgba(255,255,255,0.2); }
-.buy-btn-small:hover { background: #d4af37; color: #fff; transform: translateY(-2px); box-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
+.buy-btn-small { margin-top: 15px; padding: 10px 40px; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; border-radius: 30px; font-size: 13px; letter-spacing: 1px; transition: 0.2s; box-shadow: none !important; }
+.buy-btn-small:hover { background: #d4af37; color: #fff; transform: translateY(-2px); box-shadow: none !important; }
 
 .empty-state-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); z-index: 5; }
 .empty-content { text-align: center; }
