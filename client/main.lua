@@ -555,75 +555,83 @@ RegisterNUICallback('CloseStable', function(data, cb)
     end
 end)
 
--- ค้นหา function SaveComps() แล้วแทนที่ด้วยโค้ดชุดนี้ทั้งหมดครับ
 function SaveComps()
-    -- รวบรวมตัวแปร Global
-    local compData = {
-        SaddlesUsing,
-        SaddleclothsUsing,
-        StirrupsUsing,
-        BagsUsing,
-        ManesUsing,
-        TailsUsing,
-        SaddleHornsUsing,
-        BedrollsUsing,
-        MasksUsing,
-        MustachesUsing,
-        HolstersUsing,
-        BridlesUsing,
-        HorseshoesUsing
-    }
+    -- ใช้ CreateThread เพื่อแยกการทำงานไปอยู่เบื้องหลัง ไม่ให้ขวางการทำงานหลัก (แก้ปัญหาจอกระตุก)
+    CreateThread(function()
+        -- สร้างตารางเก็บข้อมูลอุปกรณ์
+        local compData = {}
 
-    local compDataEncoded = json.encode(compData)
-
-    if compDataEncoded and compDataEncoded ~= '[]' then
-        -- 1. บันทึกลง Database
-        local result = Core.Callback.TriggerAwait('bcc-stables:UpdateComponents', compDataEncoded, MyEntityID)
-        
-        if result then
-            -- 2. อัปเดตม้าตัวอย่างในร้าน (Shop Horse)
-            if MyEntity ~= 0 then
-                for _, component in ipairs(compData) do
-                    SetComponent(MyEntity, component)
-                end
-            end
-
-            -- 3. อัปเดตม้าจริง (Real Horse)
-            -- ใช้ tonumber เพื่อป้องกันปัญหา ID เป็น String ไม่ตรงกับ Number
-            local realHorseID = tonumber(MyHorseId)
-            local shopHorseID = tonumber(MyEntityID)
-
-            if MyHorse ~= 0 and realHorseID == shopHorseID then
-                -- รายการหมวดหมู่ที่ต้องล้างค่าเก่าออก
-                local categoriesToRemove = {
-                    0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
-                    0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
-                    0x30DEFDDF, 0xAC106B30, 0x94B2E3AF, 0xFACFC3C0
-                }
-                
-                -- ล้างของเก่าออกจากม้าจริงโดยตรง (ใช้ Native โดยตรงเพื่อให้ชัวร์)
-                for _, cat in ipairs(categoriesToRemove) do
-                    Citizen.InvokeNative(0xD710A5007C2AC539, MyHorse, cat, 0) -- RemoveTagFromMetaPed
-                end
-                -- อัปเดตเพื่อให้ของหายไปก่อน
-                Citizen.InvokeNative(0xCC8CA3E88256E58F, MyHorse, false, true, true, true, false)
-
-                -- ใส่ของใหม่เข้าไปที่ม้าจริง
-                for _, component in ipairs(compData) do
-                    SetComponent(MyHorse, component)
-                end
-                
-                -- รีเฟรชโมเดลม้าจริงอีกครั้ง
-                Citizen.InvokeNative(0xCC8CA3E88256E58F, MyHorse, false, true, true, true, false)
-                
-                -- (Debug) เช็คใน F8 ว่าทำงานไหม
-                print("^2[BCC-Stables] Real horse updated successfully!^0")
-            else
-                -- (Debug) แจ้งเตือนถ้า ID ไม่ตรง
-                print("^1[BCC-Stables] Debug: ID Mismatch or No Horse.^0 RealID:", realHorseID, "ShopID:", shopHorseID)
+        local function addComp(value)
+            if value and tonumber(value) and tonumber(value) ~= 0 then
+                table.insert(compData, tonumber(value))
             end
         end
-    end
+
+        -- รวบรวมรายการอุปกรณ์
+        addComp(SaddlesUsing)
+        addComp(SaddleclothsUsing)
+        addComp(StirrupsUsing)
+        addComp(BagsUsing)
+        addComp(ManesUsing)
+        addComp(TailsUsing)
+        addComp(SaddleHornsUsing)
+        addComp(BedrollsUsing)
+        addComp(MasksUsing)
+        addComp(MustachesUsing)
+        addComp(HolstersUsing)
+        addComp(BridlesUsing)
+        addComp(HorseshoesUsing)
+
+        local compDataEncoded = json.encode(compData)
+
+        if compDataEncoded then
+            -- 1. บันทึกลง Database (TriggerAwait จะรอ Server ตอบกลับ แต่เมื่ออยู่ใน Thread จะไม่ทำให้จอกระตุก)
+            local result = Core.Callback.TriggerAwait('bcc-stables:UpdateComponents', compDataEncoded, MyEntityID)
+            
+            if result then
+                -- 2. อัปเดตม้าตัวอย่างในร้าน (Shop Horse)
+                if MyEntity ~= 0 then
+                    local categoriesToRemove = {
+                        0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
+                        0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
+                        0x30DEFDDF, 0xAC106B30, 0x94B2E3AF, 0xFACFC3C0
+                    }
+                    for _, cat in ipairs(categoriesToRemove) do
+                        Citizen.InvokeNative(0xD710A5007C2AC539, MyEntity, cat, 0) 
+                    end
+                    Citizen.InvokeNative(0xCC8CA3E88256E58F, MyEntity, false, true, true, true, false)
+
+                    for _, component in ipairs(compData) do
+                        SetComponent(MyEntity, component)
+                    end
+                end
+
+                -- 3. อัปเดตม้าจริง (Real Horse)
+                local realHorseID = tonumber(MyHorseId)
+                local shopHorseID = tonumber(MyEntityID)
+
+                if MyHorse ~= 0 and realHorseID == shopHorseID then
+                    local categoriesToRemove = {
+                        0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
+                        0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
+                        0x30DEFDDF, 0xAC106B30, 0x94B2E3AF, 0xFACFC3C0
+                    }
+                    
+                    for _, cat in ipairs(categoriesToRemove) do
+                        Citizen.InvokeNative(0xD710A5007C2AC539, MyHorse, cat, 0)
+                    end
+                    Citizen.InvokeNative(0xCC8CA3E88256E58F, MyHorse, false, true, true, true, false)
+
+                    for _, component in ipairs(compData) do
+                        SetComponent(MyHorse, component)
+                    end
+                    
+                    Citizen.InvokeNative(0xCC8CA3E88256E58F, MyHorse, false, true, true, true, false)
+                    print("^2[BCC-Stables] Real horse updated successfully!^0")
+                end
+            end
+        end
+    end)
 end
 
 -- Reopen Menu After Sell or Failed Purchase
