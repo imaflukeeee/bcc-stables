@@ -358,7 +358,7 @@ Core.Callback.Register('bcc-stables:GetMyHorses', function(source, cb)
     local identifier = character.identifier
     local charid = character.charIdentifier
 
-    local horses = MySQL.query.await('SELECT * FROM `player_horses` WHERE `charid` = ? AND `identifier` = ? AND `dead` = ?', { charid, identifier, 0 })
+    local horses = MySQL.query.await('SELECT * FROM `player_horses` WHERE `charid` = ? AND `identifier` = ?', { charid, identifier })
 
     cb(horses)
 end)
