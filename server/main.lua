@@ -32,8 +32,8 @@ Core.Callback.Register('bcc-stables:BuyHorse', function(source, cb, data)
     local charid = character.charIdentifier
 
     local maxHorses = data.isTrainer and tonumber(Config.maxTrainerHorses) or tonumber(Config.maxPlayerHorses)
-
     local horseCount = MySQL.query.await('SELECT COUNT(*) as count FROM `player_horses` WHERE `charid` = ? AND `dead` = ?', { charid, 0 })[1].count
+    
     if horseCount >= maxHorses then
         Core.NotifyRightTip(src, _U('horseLimit') .. maxHorses .. _U('horses'), 4000)
         return cb(false)
@@ -54,20 +54,36 @@ Core.Callback.Register('bcc-stables:BuyHorse', function(source, cb, data)
         return cb(false)
     end
 
-    if data.IsCash then
+    -- ตรวจสอบตามประเภทสกุลเงินที่ส่งมาจาก UI
+    if data.currencyType == 'cash' then
         if character.money >= colorCfg.cashPrice then
             cb(true)
         else
             Core.NotifyRightTip(src, _U('shortCash'), 4000)
             cb(false)
         end
-    else
+    elseif data.currencyType == 'gold' then
         if character.gold >= colorCfg.goldPrice then
             cb(true)
         else
             Core.NotifyRightTip(src, _U('shortGold'), 4000)
             cb(false)
         end
+    elseif data.currencyType == 'item' then
+        -- ตรวจสอบไอเทม
+        if colorCfg.itemPrice then
+            local itemCount = exports.vorp_inventory:getItemCount(src, nil, colorCfg.itemPrice.name)
+            if itemCount >= colorCfg.itemPrice.amount then
+                cb(true)
+            else
+                Core.NotifyRightTip(src, "Not enough " .. colorCfg.itemPrice.label, 4000)
+                cb(false)
+            end
+        else
+            cb(false)
+        end
+    else
+        cb(false)
     end
 end)
 
@@ -143,25 +159,47 @@ Core.Callback.Register('bcc-stables:SaveNewHorse', function(source, cb, data)
     local model = data.ModelH
     local gender = data.gender
     local captured = data.captured
-    local isCash = data.IsCash
-    local currencyType = isCash and 0 or 1
-    local priceKey = isCash and 'cashPrice' or 'goldPrice'
-    local currency = isCash and character.money or character.gold
-    local notification = isCash and _U('shortCash') or _U('shortGold')
+    local currencyType = data.currencyType -- 'cash', 'gold', 'item'
 
     for _, horseCfg in pairs(Horses) do
         local colorCfg = horseCfg.colors[model]
         if colorCfg then
-            if currency >= colorCfg[priceKey] then
-                character.removeCurrency(currencyType, colorCfg[priceKey])
+            
+            local canBuy = false
 
+            -- 1. กรณีใช้เงินสด
+            if currencyType == 'cash' and colorCfg.cashPrice and character.money >= colorCfg.cashPrice then
+                character.removeCurrency(0, colorCfg.cashPrice)
+                canBuy = true
+
+            -- 2. กรณีใช้ทอง
+            elseif currencyType == 'gold' and colorCfg.goldPrice and character.gold >= colorCfg.goldPrice then
+                character.removeCurrency(1, colorCfg.goldPrice)
+                canBuy = true
+
+            -- 3. กรณีใช้ไอเทม
+            elseif currencyType == 'item' and colorCfg.itemPrice then
+                local itemCount = exports.vorp_inventory:getItemCount(src, nil, colorCfg.itemPrice.name)
+                if itemCount >= colorCfg.itemPrice.amount then
+                    exports.vorp_inventory:subItem(src, colorCfg.itemPrice.name, colorCfg.itemPrice.amount)
+                    canBuy = true
+                else
+                    Core.NotifyRightTip(src, "Not enough " .. colorCfg.itemPrice.label, 4000)
+                end
+            end
+
+            -- ถ้าซื้อสำเร็จ ให้บันทึกลงฐานข้อมูล
+            if canBuy then
                 MySQL.query.await('INSERT INTO `player_horses` (identifier, charid, name, model, gender, captured) VALUES (?, ?, ?, ?, ?, ?)',
                 { identifier, charid, name, model, gender, captured })
 
                 LogToDiscord(charid, _U('discordHorsePurchased'))
                 return cb(true)
             else
-                Core.NotifyRightTip(src, notification, 4000)
+                -- แจ้งเตือนกรณีเงิน/ของไม่พอ (fallback)
+                if currencyType == 'cash' then Core.NotifyRightTip(src, _U('shortCash'), 4000)
+                elseif currencyType == 'gold' then Core.NotifyRightTip(src, _U('shortGold'), 4000)
+                end
                 return cb(false)
             end
         end

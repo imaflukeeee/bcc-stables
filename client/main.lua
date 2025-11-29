@@ -2224,6 +2224,7 @@ function FindHorsesByJob(job)
                     color = horseColorData.color,
                     cashPrice = horseColorData.cashPrice,
                     goldPrice = horseColorData.goldPrice,
+                    itemPrice = horseColorData.itemPrice,
                     invLimit = horseColorData.invLimit,
                     job = horseColorData.job
                 }
@@ -2234,6 +2235,7 @@ function FindHorsesByJob(job)
                     color = horseColorData.color,
                     cashPrice = horseColorData.cashPrice,
                     goldPrice = horseColorData.goldPrice,
+                    itemPrice = horseColorData.itemPrice,
                     invLimit = horseColorData.invLimit,
                     job = nil
                 }
