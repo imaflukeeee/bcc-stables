@@ -1,39 +1,31 @@
--- config/horsestats.lua
-
+-- config/z_horsestats.lua
 Config = Config or {}
 
--- กำหนดค่าพลังตามสายพันธุ์ (MyHorseBreed)
--- Speed/Accel/Handling: ค่าแนะนำ 0 - 10
--- HP/Stamina: ค่าปกติ 100-150 (ถ้าอยากให้อึดมากใส่ 300-500)
-
+-- ค่า Base Rank (แนะนำ 1-10 หรือมากกว่าตามต้องการ)
 Config.HorseStats = {
-    ['Arabian'] = {
-        speed = 9,          -- ความเร็วสูง
-        accel = 9,          -- เร่งไว
-        handling = 8,       -- การควบคุมระดับ Elite (เลี้ยวไว)
-        hp = 300,
-        stamina = 100
-    },
-    ['Thoroughbred'] = {
-        speed = 8,
-        accel = 7,
-        handling = 5,       -- การควบคุมระดับ Race
-        hp = 200,
-        stamina = 200
-    },
-    ['Shire'] = {
-        speed = 3,          -- ช้า
-        accel = 2,          -- ออกตัวอืด
-        handling = 0,       -- การควบคุมระดับ Heavy (เลี้ยวยาก)
-        hp = 500,           -- เลือดเยอะมาก (สายถึก)
-        stamina = 250
-    },
     ['Morgan'] = {
-        speed = 4,
-        accel = 4,
-        handling = 2,       -- การควบคุมระดับ Standard
-        hp = 120,
-        stamina = 120
+        health = 10,         -- Rank 0
+        stamina = 10,        -- Rank 1
+        courage = 10,        -- Rank 3 (ความกล้า)
+        agility = 10,        -- Rank 4 (การเลี้ยว)
+        speed = 10,          -- Rank 5
+        acceleration = 10    -- Rank 6
     },
-    -- เพิ่มสายพันธุ์อื่นๆ ได้ตามชื่อใน config/horses.lua
+    ['American Paint'] = {
+        health = 8,
+        stamina = 9,
+        courage = 10,
+        agility = 10,
+        speed = 10,
+        acceleration = 10
+    },
+    ['Tennessee Walker'] = {
+        health = 5,
+        stamina = 6,
+        courage = 6,
+        agility = 5,
+        speed = 8,
+        acceleration = 7
+    },
+    -- เพิ่ม Breed อื่นๆ ได้ตามชื่อใน config/horses.lua
 }

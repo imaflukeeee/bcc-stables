@@ -590,6 +590,7 @@ function SpawnHorse(data)
     MyModel = joaat(horseModel)
     LoadModel(MyModel, horseModel)
 
+    -- ค้นหา Breed และ Color
     for _, horseCfg in pairs(Horses) do
         for model, modelCfg in pairs(horseCfg.colors) do
             local horseHash = joaat(model)
@@ -625,53 +626,59 @@ function SpawnHorse(data)
     end
 
     if not spawnPosition then
+        Spawning = false -- Reset state if failed
         return print('No spawn position found!')
     end
 
     MyHorse = CreatePed(MyModel, spawnPosition.x, spawnPosition.y, spawnPosition.z, GetEntityHeading(playerPed), true, false, false, false)
     local entityExists = CheckEntityExists(MyHorse)
     if not entityExists then
+        Spawning = false
         return
     end
 
+    ---------------------------------------------------------------------------
+    -- [ส่วนสำคัญ] ตั้งค่า Stats (SetAttributeBaseRank)
+    ---------------------------------------------------------------------------
     if Config.HorseStats and Config.HorseStats[MyHorseBreed] then
         local stats = Config.HorseStats[MyHorseBreed]
-        print("DEBUG: Found stats config for " .. tostring(MyHorseBreed))
-        if stats.speed then
-            Citizen.InvokeNative(0x5DA12E24E7BB5E89, MyHorse, 5, math.floor(stats.speed)) 
-        end
+        print("^2[BCC-Debug] Applying Stats for Breed: " .. tostring(MyHorseBreed) .. "^0") -- เช็คตรงนี้ใน F8
 
-        if stats.accel then
-            Citizen.InvokeNative(0x5DA12E24E7BB5E89, MyHorse, 6, math.floor(stats.accel))
-        end
-
-        if stats.handling then
-             Citizen.InvokeNative(0x5DA12E24E7BB5E89, MyHorse, 4, math.floor(stats.handling))
-        end
-
-        if stats.hp then
-            local hpValue = math.floor(stats.hp) 
-            Citizen.InvokeNative(0x166E7CF68597D8B5, MyHorse, hpValue) 
-            SetEntityHealth(MyHorse, hpValue)
-            Citizen.InvokeNative(0x09A59688C26D88DF, MyHorse, 0, hpValue)
+        -- 0: PA_HEALTH (เลือด)
+        if stats.health then
+            Citizen.InvokeNative(0x5DA12E025D47D4E5, MyHorse, 0, math.floor(stats.health))
             Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 0, 100) 
         end
-        
+
+        -- 1: PA_STAMINA (ความอึด)
         if stats.stamina then
-             local stValue = math.floor(stats.stamina)
-             Citizen.InvokeNative(0x09A59688C26D88DF, MyHorse, 1, stValue)
-             Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 1, 100)
+            Citizen.InvokeNative(0x5DA12E025D47D4E5, MyHorse, 1, math.floor(stats.stamina))
+            Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 1, 100)
         end
-        
-    if Config.devMode then
-            local msg = string.format("[BCC] Stats Set: %s | HP:%s (Fixed)", tostring(MyHorseBreed), tostring(stats.hp))
-            print(msg) 
-            Core.NotifyRightTip(msg, 5000)
+
+        -- 3: PA_COURAGE (ความกล้า)
+        if stats.courage then
+            Citizen.InvokeNative(0x5DA12E025D47D4E5, MyHorse, 3, math.floor(stats.courage))
+        end
+
+        -- 4: PA_AGILITY (การเลี้ยว)
+        if stats.agility then
+            Citizen.InvokeNative(0x5DA12E025D47D4E5, MyHorse, 4, math.floor(stats.agility))
+        end
+
+        -- 5: PA_SPEED (ความเร็ว)
+        if stats.speed then
+            Citizen.InvokeNative(0x5DA12E025D47D4E5, MyHorse, 5, math.floor(stats.speed))
+            print("   - Set Speed Rank: " .. stats.speed)
+        end
+
+        -- 6: PA_ACCELERATION (อัตราเร่ง)
+        if stats.acceleration then
+            Citizen.InvokeNative(0x5DA12E025D47D4E5, MyHorse, 6, math.floor(stats.acceleration))
+            print("   - Set Accel Rank: " .. stats.acceleration)
         end
     else
-        if Config.devMode then
-            print("DEBUG: No custom stats found for " .. tostring(MyHorseBreed))
-        end
+        print("^1[BCC-Debug] No stats config found for: " .. tostring(MyHorseBreed) .. "^0")
     end
     ---------------------------------------------------------------------------
 
@@ -692,59 +699,44 @@ function SpawnHorse(data)
     Citizen.InvokeNative(0xB8B6430EAD2D2437, MyHorse, `PLAYER_HORSE`) -- SetPedPersonality
     Citizen.InvokeNative(0xE6D4E435B56D5BD0, player, MyHorse) -- SetPlayerOwnsMount
 
-    -- ModifyPlayerUiPromptForPed / Horse Prompts / (Block = 0, Hide = 1, Grey Out = 2)
+    -- Horse Prompts
     Citizen.InvokeNative(0xA3DB37EDF9A74635, player, MyHorse, 49, 1, true) -- HORSE_BRUSH
     Citizen.InvokeNative(0xA3DB37EDF9A74635, player, MyHorse, 50, 1, true) -- HORSE_FEED
     if not Config.fleeEnabled then
         Citizen.InvokeNative(0xA3DB37EDF9A74635, player, MyHorse, 33, 1, true) -- HORSE_FLEE
     end
 
-    -- Set Horse Health and Stamina
+    -- Set Initial Health/Stamina Core
     local health = data.health or 100
-    if health == 0 then
-        health = 100
-    end
-    Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 0, health)  -- SetAttributeCoreValue
+    if health == 0 then health = 100 end
+    Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 0, health)
 
     local stamina = data.stamina or 100
-    if stamina == 0 then
-        stamina = 100
-    end
-    Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 1, stamina) -- SetAttributeCoreValue
+    if stamina == 0 then stamina = 100 end
+    Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 1, stamina)
 
     -- Bonding
-    Citizen.InvokeNative(0x09A59688C26D88DF, MyHorse, 7, xp) -- SetAttributePoints
-    local maxXp = Citizen.InvokeNative(0x223BF310F854871C, MyHorse, 7) -- GetMaxAttributePoints
-    MaxBonding = false
-    if xp >= maxXp then
-        MaxBonding = true
-    end
+    Citizen.InvokeNative(0x09A59688C26D88DF, MyHorse, 7, xp)
+    local maxXp = Citizen.InvokeNative(0x223BF310F854871C, MyHorse, 7)
+    MaxBonding = (xp >= maxXp)
 
     if Config.trainerOnly then
         CheckPlayerJob(true, nil)
-        if IsTrainer then
-            TriggerEvent('bcc-stables:HorseBonding')
-        end
+        if IsTrainer then TriggerEvent('bcc-stables:HorseBonding') end
     else
         TriggerEvent('bcc-stables:HorseBonding')
     end
 
-    local currentLevel = Citizen.InvokeNative(0x147149F2E909323C, MyHorse, 7, Citizen.ResultAsInteger()) -- GetAttributeBaseRank
+    local currentLevel = Citizen.InvokeNative(0x147149F2E909323C, MyHorse, 7, Citizen.ResultAsInteger())
 
-    -- SetPedConfigFlag
-    if currentLevel >= 2 then
-        Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 113, true) -- DisableShockingEvents
-    end
-    if currentLevel >= 3 then
-        Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 312, true) -- DisableHorseGunshotFleeResponse
-    end
-    Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 297, true) -- ForceInteractionLockonOnTargetPed / Allow to Lead Horse
-    Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 471, Config.disableKick) -- DisableHorseKick
+    if currentLevel >= 2 then Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 113, true) end
+    if currentLevel >= 3 then Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 312, true) end
+    Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 297, true)
+    Citizen.InvokeNative(0x1913FE4CBF41C463, MyHorse, 471, Config.disableKick)
+    Citizen.InvokeNative(0xE2487779957FE897, MyHorse, 528)
 
-    Citizen.InvokeNative(0xE2487779957FE897, MyHorse, 528) -- SetTransportUsageFlags
-
-    local horseBlip = Citizen.InvokeNative(0x23f74c2fda6e7c61, -1230993421, MyHorse) -- BlipAddForEntity
-    Citizen.InvokeNative(0x9CB1A1623062F402, horseBlip, HorseName) -- SetBlipName
+    local horseBlip = Citizen.InvokeNative(0x23f74c2fda6e7c61, -1230993421, MyHorse)
+    Citizen.InvokeNative(0x9CB1A1623062F402, horseBlip, HorseName)
     SetPedPromptName(MyHorse, HorseName)
 
     TriggerServerEvent('bcc-stables:RegisterInventory', MyHorseId, horseModel)
@@ -753,23 +745,16 @@ function SpawnHorse(data)
         Entity(MyHorse).state:set('myHorseId', MyHorseId, true)
     end
 
-    if Config.horseTag then
-        TriggerEvent('bcc-stables:HorseTag')
-    end
+    if Config.horseTag then TriggerEvent('bcc-stables:HorseTag') end
 
     TriggerEvent('bcc-stables:TradeHorse')
-
     PromptsStarted = false
     TriggerEvent('bcc-stables:HorsePrompts')
 
-    if Config.saveInterval > 0 then
-        TriggerEvent('bcc-stables:HorseMonitor')
-    end
+    if Config.saveInterval > 0 then TriggerEvent('bcc-stables:HorseMonitor') end
 
     if components and components ~= '[]' then
-        for _, component in ipairs(components) do
-            SetComponent(MyHorse, component)
-        end
+        for _, component in ipairs(components) do SetComponent(MyHorse, component) end
     end
 
     InWrithe = false
