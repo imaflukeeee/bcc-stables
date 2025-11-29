@@ -351,9 +351,9 @@ export default {
     // [NEW] Helper function to get price safely
     getItemPrice(item) {
         if (!item) return 0;
-        return item.price || item.cash || item.cost || 0;
+        // เพิ่ม item.cashPrice เข้าไปเป็นตัวแรกสุด
+        return item.cashPrice || item.price || item.cash || item.cost || 0;
     },
-
     handleKeydown(e) {
         if (this.subMode === 'decorate_item') {
             if (e.key === 'ArrowLeft') this.prevItem();
@@ -476,36 +476,20 @@ export default {
         const item = this.currentDecorItem;
         if (!item || typeof item.hash === 'undefined') return;
         
-        // 1. Preview
-        const cost = this.getItemPrice(item);
-        api.post(this.selectedDecorCategory, { hash: item.hash, price: cost, id: 0 });
+        // 1. ดึงราคา (ทั้ง Cash และ Gold) จาก Config โดยตรง
+        // Server บังคับว่าต้องมีค่าส่งไปทั้งคู่ ไม่งั้นจะซื้อไม่ผ่าน
+        const cashCost = item.cashPrice || item.price || 0;
+        const goldCost = item.goldPrice || 0;
         
-        // 2. Calculate New Components
-        let currentComps = [];
-        try {
-            if (this.selectedHorse.components && this.selectedHorse.components !== '[]') {
-                const parsed = JSON.parse(this.selectedHorse.components);
-                if (Array.isArray(parsed)) currentComps = parsed;
-                else if (typeof parsed === 'object') currentComps = Object.values(parsed);
-            }
-        } catch (e) { currentComps = []; }
-        if (!Array.isArray(currentComps)) currentComps = [];
-
-        // Filter out old item in this category
-        const categoryItems = this.currentCategoryItems;
-        const categoryHashes = categoryItems.map(i => parseInt(i.hash)); 
-        const newComps = currentComps.filter(hash => !categoryHashes.includes(parseInt(hash)));
+        // 2. ส่ง Preview ไปที่ Client (เพื่อให้ตัวแปร Global จำค่า hash นี้ไว้)
+        api.post(this.selectedDecorCategory, { hash: item.hash, price: cashCost, id: 0 });
         
-        // Add new item
-        newComps.push(parseInt(item.hash));
-
-        // 3. Save
+        // 3. ส่งคำสั่ง Save พร้อมราคาที่ถูกต้องทั้ง 2 สกุลเงิน
         api.post("CloseStable", { 
             MenuAction: "save",
-            cashPrice: cost,
-            goldPrice: 0,
-            currencyType: 0,
-            newComponents: newComps 
+            cashPrice: cashCost,
+            goldPrice: goldCost, // ต้องส่งค่านี้ไปตามจริง แม้จะจ่ายด้วย Cash ก็ตาม
+            currencyType: 0,     // 0 = จ่ายด้วยเงินสด, 1 = จ่ายด้วยทอง
         });
         
         setTimeout(() => this.closeMenu(), 500);

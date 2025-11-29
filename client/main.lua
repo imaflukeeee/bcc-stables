@@ -418,12 +418,16 @@ RegisterNUICallback('RenameHorse', function(data, cb)
     SetHorseName(data)
 end)
 
--- View Owned Horse in Stable Menu
 RegisterNUICallback('loadMyHorse', function(data, cb)
     cb('ok')
     ClearShopHorse()
     MyEntityID = data.HorseId
     local components = json.decode(data.HorseComp)
+
+    -- [สำคัญ] รีเซ็ตตัวแปรมารอก่อน
+    SaddlesUsing = nil; SaddleclothsUsing = nil; StirrupsUsing = nil; BagsUsing = nil;
+    ManesUsing = nil; TailsUsing = nil; SaddleHornsUsing = nil; BedrollsUsing = nil;
+    MasksUsing = nil; MustachesUsing = nil; HolstersUsing = nil; BridlesUsing = nil; HorseshoesUsing = nil;
 
     local modelName = data.HorseModel
     local model = joaat(modelName)
@@ -433,33 +437,44 @@ RegisterNUICallback('loadMyHorse', function(data, cb)
     local coords = siteCfg.horse.coords
     MyEntity = CreatePed(model, coords.x, coords.y, coords.z - 1.0, siteCfg.horse.heading, false, false, false, false)
 
-    local entityExists = CheckEntityExists(MyEntity)
-    if not entityExists then
-        return
-    end
-
-    Citizen.InvokeNative(0x283978A15512B2FE, MyEntity, true) -- SetRandomOutfitVariation
-    Citizen.InvokeNative(0x58A850EAEE20FAA3, MyEntity) -- PlaceObjectOnGroundProperly
-    Citizen.InvokeNative(0x7D9EFB7AD6B19754, MyEntity, true) -- FreezeEntityPosition
-
-    if data.HorseGender == 'female' then
-        Citizen.InvokeNative(0x5653AB26C82938CF, MyEntity, 41611, 1.0) -- SetCharExpression
-        Citizen.InvokeNative(0xCC8CA3E88256E58F, MyEntity, false, true, true, true, false) -- UpdatePedVariation
-    end
-
-    if not Cam then
-        Cam = true
-        CameraLighting()
-    end
-
+    -- ... (โค้ดสร้างม้าอื่นๆ ของคุณ ข้ามไปส่วนท้าย function) ...
+    Citizen.InvokeNative(0x283978A15512B2FE, MyEntity, true)
+    Citizen.InvokeNative(0x58A850EAEE20FAA3, MyEntity)
+    Citizen.InvokeNative(0x7D9EFB7AD6B19754, MyEntity, true)
+    
+    if not Cam then Cam = true; CameraLighting() end
     SetBlockingOfNonTemporaryEvents(MyEntity, true)
-    SetPedConfigFlag(MyEntity, 113, true) -- PCF_DisableShockingEvents
-    Wait(300)
-    Citizen.InvokeNative(0x6585D955A68452A5, MyEntity) -- ClearPedEnvDirt
+    SetPedConfigFlag(MyEntity, 113, true)
+    Citizen.InvokeNative(0x6585D955A68452A5, MyEntity)
 
+    -- [ส่วนสำคัญที่สุด] โหลดของเดิมเข้าตัวแปร
     if components and components ~= '[]' then
         for _, component in ipairs(components) do
-            SetComponent(MyEntity, component)
+            local compHash = tonumber(component)
+            SetComponent(MyEntity, compHash) -- ใส่ให้ม้าตัวอย่าง
+
+            -- Map เข้าตัวแปร Global เพื่อให้ SaveComps รู้จัก
+            for category, items in pairs(HorseComp) do
+                for _, item in ipairs(items) do
+                    if tonumber(item.hash) == compHash then
+                        if category == 'Saddles' then SaddlesUsing = compHash
+                        elseif category == 'Saddlecloths' then SaddleclothsUsing = compHash
+                        elseif category == 'Stirrups' then StirrupsUsing = compHash
+                        elseif category == 'SaddleBags' then BagsUsing = compHash
+                        elseif category == 'Manes' then ManesUsing = compHash
+                        elseif category == 'Tails' then TailsUsing = compHash
+                        elseif category == 'SaddleHorns' then SaddleHornsUsing = compHash
+                        elseif category == 'Bedrolls' then BedrollsUsing = compHash
+                        elseif category == 'Masks' then MasksUsing = compHash
+                        elseif category == 'Mustaches' then MustachesUsing = compHash
+                        elseif category == 'Holsters' then HolstersUsing = compHash
+                        elseif category == 'Bridles' then BridlesUsing = compHash
+                        elseif category == 'Horseshoes' then HorseshoesUsing = compHash
+                        end
+                        break -- เจอแล้วหยุด loop นี้
+                    end
+                end
+            end
         end
     end
 end)
@@ -529,46 +544,20 @@ RegisterNUICallback('CloseStable', function(data, cb)
     ClearPedTasksImmediately(PlayerPedId())
 
     if data.MenuAction == 'save' then
-        -- 1. หักเงิน
+        -- 1. ตรวจสอบและหักเงิน (ใช้ Server Callback เดิม)
         local result = Core.Callback.TriggerAwait('bcc-stables:BuyTack', data)
+        
+        -- 2. ถ้าหักเงินสำเร็จ ให้บันทึกด้วย Logic เดิม (SaveComps)
+        -- ฟังก์ชัน SaveComps() จะไปรวบรวมตัวแปร global (เช่น SaddlesUsing) ที่ถูกจำค่าไว้ตอน loadMyHorse หรือตอนเลือกของ แล้วบันทึกลง Database
         if result then
-            -- 2. บันทึกของ
-            -- [Logic ใหม่] ถ้ามีรายการของส่งมาจากเว็บ ให้ใช้ตัวนี้บันทึกเลย
-            if data.newComponents then
-                local compDataEncoded = json.encode(data.newComponents)
-                
-                -- บันทึกลง Database
-                Core.Callback.TriggerAwait('bcc-stables:UpdateComponents', compDataEncoded, MyEntityID)
-                
-                -- อัปเดตที่ตัวม้าทันที (ถ้าม้าตัวนั้นถูกเสกออกมาอยู่)
-                if MyHorse ~= 0 and MyHorseId == MyEntityID then
-                     -- ลบของเก่าออกให้หมดก่อน
-                     local categoriesToRemove = {
-                        0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
-                        0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
-                        0x30DEFDDF, 0xAC106B30, 0x94B2E3AF, 0xFACFC3C0
-                     }
-                     for _, cat in ipairs(categoriesToRemove) do
-                        RemoveComponent(cat)
-                     end
-                     
-                     -- ใส่ของใหม่ทีละชิ้น
-                     for _, compHash in ipairs(data.newComponents) do
-                        SetComponent(MyHorse, compHash)
-                     end
-                end
-                
-                Core.NotifyRightTip("Purchase Successful", 4000)
-            else
-                -- [Logic เดิม] ถ้าไม่มีข้อมูลส่งมา ให้ใช้ระบบจำค่าตัวแปรแบบเดิม
-                SaveComps()
-            end
+            SaveComps()
         end
     end
 end)
 
--- Save Horse Tack to Database
+-- ค้นหา function SaveComps() แล้วแทนที่ด้วยโค้ดชุดนี้ทั้งหมดครับ
 function SaveComps()
+    -- รวบรวมตัวแปร Global
     local compData = {
         SaddlesUsing,
         SaddleclothsUsing,
@@ -588,10 +577,50 @@ function SaveComps()
     local compDataEncoded = json.encode(compData)
 
     if compDataEncoded and compDataEncoded ~= '[]' then
+        -- 1. บันทึกลง Database
         local result = Core.Callback.TriggerAwait('bcc-stables:UpdateComponents', compDataEncoded, MyEntityID)
+        
         if result then
-            for _, component in ipairs(compData) do
-                SetComponent(MyEntity, component)
+            -- 2. อัปเดตม้าตัวอย่างในร้าน (Shop Horse)
+            if MyEntity ~= 0 then
+                for _, component in ipairs(compData) do
+                    SetComponent(MyEntity, component)
+                end
+            end
+
+            -- 3. อัปเดตม้าจริง (Real Horse)
+            -- ใช้ tonumber เพื่อป้องกันปัญหา ID เป็น String ไม่ตรงกับ Number
+            local realHorseID = tonumber(MyHorseId)
+            local shopHorseID = tonumber(MyEntityID)
+
+            if MyHorse ~= 0 and realHorseID == shopHorseID then
+                -- รายการหมวดหมู่ที่ต้องล้างค่าเก่าออก
+                local categoriesToRemove = {
+                    0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
+                    0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
+                    0x30DEFDDF, 0xAC106B30, 0x94B2E3AF, 0xFACFC3C0
+                }
+                
+                -- ล้างของเก่าออกจากม้าจริงโดยตรง (ใช้ Native โดยตรงเพื่อให้ชัวร์)
+                for _, cat in ipairs(categoriesToRemove) do
+                    Citizen.InvokeNative(0xD710A5007C2AC539, MyHorse, cat, 0) -- RemoveTagFromMetaPed
+                end
+                -- อัปเดตเพื่อให้ของหายไปก่อน
+                Citizen.InvokeNative(0xCC8CA3E88256E58F, MyHorse, false, true, true, true, false)
+
+                -- ใส่ของใหม่เข้าไปที่ม้าจริง
+                for _, component in ipairs(compData) do
+                    SetComponent(MyHorse, component)
+                end
+                
+                -- รีเฟรชโมเดลม้าจริงอีกครั้ง
+                Citizen.InvokeNative(0xCC8CA3E88256E58F, MyHorse, false, true, true, true, false)
+                
+                -- (Debug) เช็คใน F8 ว่าทำงานไหม
+                print("^2[BCC-Stables] Real horse updated successfully!^0")
+            else
+                -- (Debug) แจ้งเตือนถ้า ID ไม่ตรง
+                print("^1[BCC-Stables] Debug: ID Mismatch or No Horse.^0 RealID:", realHorseID, "ShopID:", shopHorseID)
             end
         end
     end
