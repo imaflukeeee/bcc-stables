@@ -11,8 +11,6 @@
         <div class="stat-top-row">
            <div class="stat-numbers-wrapper center-align">
               <span class="val-label">จำนวน</span>
-              <span class="val-current">{{ count }}</span>
-              <span class="val-divider">/</span>
               <span class="val-max">{{ limit }}</span>
               <span class="val-unit">ช่อง</span>
            </div>
