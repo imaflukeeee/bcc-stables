@@ -55,6 +55,19 @@
         </div>
 
         <template v-else>
+            
+            <div v-if="subMode === 'list' && hoveredHorse" class="hover-preview-container">
+                <div class="manage-stats-wrapper">
+                    <HorseStats :stats="hoveredHorse.stats || {}" />
+                </div>
+                <div class="manage-info-right">
+                    <HorseStorage 
+                        :limit="hoveredHorse.invLimit || 0" 
+                        :show-action-btn="false" 
+                    />
+                </div>
+            </div>
+
             <div v-if="subMode === 'list'" class="bottom-showroom-list">
               <div 
                 v-for="(horse, index) in currentList" 
@@ -352,12 +365,12 @@
 import { mapState, mapGetters } from 'vuex';
 import HorseStats from '@/components/HorseStats.vue'; 
 import HorseStorage from '@/components/HorseStorage.vue';
-import ConfirmationModal from '@/components/ConfirmationModal.vue'; // [แก้ไข] Import Modal
+import ConfirmationModal from '@/components/ConfirmationModal.vue'; 
 import api from '@/api';
 
 export default {
   name: "StableDashboard",
-  components: { HorseStats, HorseStorage, ConfirmationModal }, // [แก้ไข] Register Modal
+  components: { HorseStats, HorseStorage, ConfirmationModal }, 
   data() {
       return {
           viewMode: 'home',
@@ -368,7 +381,8 @@ export default {
           selectedDecorCategory: null,
           currentDecorIndex: 0,
           scrollOffsetCat: 0,
-          showModal: false // [แก้ไข] ตัวแปรควบคุม Modal
+          showModal: false,
+          hoveredHorse: null // [เพิ่ม] เก็บข้อมูลม้าที่กำลัง Hover
       }
   },
   computed: {
@@ -463,11 +477,20 @@ export default {
     },
     
     goToShop() { this.$store.dispatch('selectTab', 'shop'); this.subMode = 'list'; },
+    
+    // [แก้ไข] อัปเดต hoveredHorse เมื่อเอาเมาส์ชี้
     onHorseHover(horse) {
+        this.hoveredHorse = horse;
         if (this.currentTab === 'owned') { this.previewMyHorse(horse); } 
         else if (this.currentTab === 'shop' && horse.colors) { this.previewHorse(Object.keys(horse.colors)[0]); }
     },
-    enterMode(mode) { this.$store.dispatch('selectTab', mode); this.viewMode = 'content'; this.subMode = 'list'; },
+    
+    enterMode(mode) { 
+        this.$store.dispatch('selectTab', mode); 
+        this.viewMode = 'content'; 
+        this.subMode = 'list'; 
+        this.hoveredHorse = null; // รีเซ็ตค่า Hover
+    },
     
     getBackLabel() {
         if (['decorate_item', 'equipment_item'].includes(this.subMode)) return 'CATEGORIES';
@@ -487,6 +510,7 @@ export default {
             if (this.subMode === 'actions') {
                 this.subMode = 'list';
                 this.$store.dispatch('selectHorse', null);
+                this.hoveredHorse = null; // เคลียร์ Hover เมื่อกลับหน้ารายการ
                 return;
             }
         }
@@ -595,7 +619,6 @@ export default {
     performAction(action) {
         if (!this.selectedHorse) return;
         
-        // [แก้ไข] ดักจับ action 'release' เพื่อแสดง Modal แทนการเรียก API ทันที
         if (action === 'release') {
             this.showModal = true;
             return;
@@ -605,12 +628,10 @@ export default {
         
         api.post("horseAction", { action: action, horseId: this.selectedHorse.id, horseModel: this.selectedHorse.model });
         
-        // [แก้ไข] ลบ 'release' ออกจาก array นี้ เพราะเราจัดการแยกต่างหาก
         if (['call', 'return'].includes(action)) this.closeMenu();
         if (['heal', 'setMain'].includes(action)) setTimeout(() => this.closeMenu(), 300);
     },
 
-    // [แก้ไข] เพิ่มฟังก์ชันสำหรับปุ่ม "ยืนยัน" ใน Modal
     confirmRelease() {
         api.post("horseAction", { action: 'release', horseId: this.selectedHorse.id, horseModel: this.selectedHorse.model });
         this.showModal = false;

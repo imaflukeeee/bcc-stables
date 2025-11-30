@@ -16,7 +16,7 @@
            </div>
         </div>
 
-        <button class="action-button-small" @click="openCargo">
+        <button v-if="showActionBtn" class="action-button-small" @click="openCargo">
           เปิดกระเป๋า
         </button>
 
@@ -36,9 +36,14 @@ export default {
     count: {
       type: [Number, String],
       default: 0
+    },
+    // เพิ่ม Prop ใหม่สำหรับซ่อน/แสดงปุ่ม (ค่าเริ่มต้นเป็น true คือแสดงปกติ)
+    showActionBtn: {
+      type: Boolean,
+      default: true
     }
   },
-  methods: { // เพิ่ม method สำหรับปล่อย Event
+  methods: {
       openCargo() {
           this.$emit('open-cargo');
       }
@@ -59,7 +64,7 @@ export default {
   font-family: 'Pridi', serif;
 }
 
-/* หัวข้อ - Saddle Bags (สีทอง Gradient เดิม) */
+/* หัวข้อ - Saddle Bags */
 .stats-header h2 {
   margin: 0;
   font-size: 28px;
@@ -67,17 +72,15 @@ export default {
   text-transform: uppercase;
   letter-spacing: 2px;
   text-align: center;
-  
   background: linear-gradient(to bottom, #f1c40f, #b7950b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: #f1c40f;
-  
   text-shadow: none;
 }
 
-/* เส้นขีด - สีทอง */
+/* เส้นขีด */
 .header-line {
   width: 70px;
   height: 3px;
@@ -96,7 +99,6 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  /* จัดให้เนื้อหาใน stat-item อยู่ตรงกลาง */
   align-items: center;
 }
 
@@ -111,30 +113,27 @@ export default {
   display: flex;
   align-items: baseline;
   font-family: 'Pridi', serif;
-  gap: 6px; /* ระยะห่างระหว่างคำ */
+  gap: 6px;
 }
 
-/* Class พิเศษสำหรับจัดกึ่งกลาง */
 .center-align {
   justify-content: center;
   width: 100%;
 }
 
-/* ข้อมูล: จำนวน ... ช่อง (สีขาวทั้งหมด) */
 .val-label, .val-current, .val-divider, .val-max, .val-unit {
   font-size: 20px;
   font-weight: 500;
-  color: #ffffff; /* สีขาว */
+  color: #ffffff;
 }
 
 .val-unit {
-  font-size: 18px; /* หน่วยเล็กกว่านิดหน่อย */
+  font-size: 18px;
 }
 
-/* --- NEW STYLES FOR OPEN CARGO BUTTON --- */
 .action-button-small {
     padding: 8px 25px;
-    background: #d4af37; /* สีทอง/เหลือง */
+    background: #d4af37;
     color: #111;
     border: none;
     border-radius: 20px;
