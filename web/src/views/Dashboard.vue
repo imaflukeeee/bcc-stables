@@ -35,7 +35,7 @@
 
     <div v-else class="content-view">
       
-      <button class="floating-back-btn" @click="handleBack">
+      <button v-if="currentTab === 'owned'" class="floating-back-btn" @click="handleBack">
         <i class="fas fa-chevron-left"></i> {{ getBackLabel() }}
       </button>
 
@@ -55,16 +55,12 @@
         </div>
 
         <template v-else>
-            
             <div v-if="subMode === 'list' && hoveredHorse" class="hover-preview-container">
                 <div class="manage-stats-wrapper">
                     <HorseStats :stats="hoveredHorse.stats || {}" />
                 </div>
                 <div class="manage-info-right">
-                    <HorseStorage 
-                        :limit="hoveredHorse.invLimit || 0" 
-                        :show-action-btn="false" 
-                    />
+                    <HorseStorage :limit="hoveredHorse.invLimit || 0" :show-action-btn="false" />
                 </div>
             </div>
 
@@ -110,24 +106,21 @@
                     <HorseStats :stats="selectedHorse.stats || {}" />
                 </div>
                 <div class="manage-info-right">
-                    <HorseStorage 
-                    :limit="selectedHorse.invLimit || 0" 
-                    @open-cargo="openHorseCargo"
-                    />
+                    <HorseStorage :limit="selectedHorse.invLimit || 0" @open-cargo="openHorseCargo" />
                 </div>
 
                 <div class="bottom-showroom-list action-menu-list">
                     <div class="showroom-card" @click="performAction('call')" :class="{ disabled: selectedHorse.dead == 1 }">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/whistle-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">เรียกม้า</h3><p class="horse-breed-show">ผิวปากเรียกม้าคู่ใจ</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">เรียกม้า</h3></div>
                     </div>
                     <div class="showroom-card" @click="performAction('return')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/return-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">ส่งม้ากลับคอก</h3><p class="horse-breed-show">พาคู่หูกลับคอก</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">ส่งม้ากลับคอก</h3></div>
                     </div>
                     <div class="showroom-card" @click="performAction('decorate')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">ซื้ออุปกรณ์ตกแต่ง</h3><p class="horse-breed-show">เลือกซื้ออุปกรณ์และตกแต่งม้าคู่ใจ</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">ซื้ออุปกรณ์ตกแต่ง</h3></div>
                     </div>
                     <div class="showroom-card" @click="performAction('heal')" :class="{ disabled: !(selectedHorse.dead == 1 || selectedHorse.writhe == 1) }">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/revive-icon.png" class="white-icon-medium" /></div>
@@ -135,144 +128,78 @@
                     </div>
                     <div class="showroom-card" @click="performAction('setMain')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/star-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">ตั้งเป็นม้าตัวหลัก</h3><p class="horse-breed-show">ตั้งม้าตัวนี้เป็นหัวใจของคอก</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">ตั้งเป็นม้าตัวหลัก</h3></div>
                     </div>
                     <div class="showroom-card" @click="manageEquipment">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-manage-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">อุปกรณ์ตกแต่ง</h3><p class="horse-breed-show">ดูแลและจัดอุปกรณ์ม้าคู่ใจ</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">อุปกรณ์ตกแต่ง</h3></div>
                     </div>
-                    
                     <div class="showroom-card danger-card" @click="performAction('release')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/release-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show text-danger">ปล่อยม้า</h3><p class="horse-breed-show">ปล่อยคู่หูของคุณไปตามทาง</p></div>
+                        <div class="card-body"><h3 class="horse-name-show text-danger">ปล่อยม้า</h3></div>
                     </div>
                 </div>
             </div>
             
             <div v-else-if="subMode === 'equipment_cat' && selectedHorse" class="manage-action-view">
-                <div class="selected-horse-header">
+                 <div class="selected-horse-header">
                     <h1>จัดการอุปกรณ์ตกแต่งม้า</h1>
-                    <div class="sub-info">เลือกประเภทเพื่อดูสิ่งของที่เป็นของคุณ</div>
                 </div>
-                
-                <div v-if="!hasAnyOwnedItems" class="empty-notif">
-                    <h2>ยังไม่มีอุปกรณ์</h2>
-                    <p>ไปที่เมนู "ซื้ออุปกรณ์ตกแต่ง" เลือกซื้อของให้ม้าก่อน</p>
-                </div>
-
-                <div v-else class="carousel-container-wide">
+                 <div class="carousel-container-wide">
                     <button class="nav-arrow left" @click="scrollLeftCat">❮</button>
-
                     <div class="decor-grid-6">
-                        <div 
-                            v-for="(category, index) in visibleOwnedCats" 
-                            :key="index" 
-                            class="showroom-card"
-                            @click="openEquipmentItems(category)"
-                        >
-                            <div class="card-center-icon">
-                                <img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" />
-                            </div>
-                            <div class="card-body">
-                               <h3 class="horse-name-show">{{ formatCategoryName(category) }}</h3>
-                               <p class="horse-breed-show">{{ getOwnedCountInCategory(category) }} Items</p>
-                            </div>
+                        <div v-for="(category, index) in visibleOwnedCats" :key="index" class="showroom-card" @click="openEquipmentItems(category)">
+                            <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" /></div>
+                            <div class="card-body"><h3 class="horse-name-show">{{ formatCategoryName(category) }}</h3><p class="horse-breed-show">{{ getOwnedCountInCategory(category) }} Items</p></div>
                         </div>
                     </div>
-
                     <button class="nav-arrow right" @click="scrollRightCat">❯</button>
-                </div>
-                
-                <div style="position:absolute; bottom: 30px; color: #666; font-size: 12px;">
-                    Use Arrow Keys ◀ ▶ to browse
                 </div>
             </div>
 
             <div v-else-if="subMode === 'equipment_item' && selectedHorse" class="manage-action-view">
-                <div class="selected-horse-header">
-                    <h1>{{ formatCategoryName(selectedDecorCategory) }}</h1>
-                    <div class="sub-info">Manage your owned items</div>
-                </div>
-
-                <div class="carousel-container">
+                 <div class="selected-horse-header"><h1>{{ formatCategoryName(selectedDecorCategory) }}</h1></div>
+                 <div class="carousel-container">
                     <div class="decor-selector-center">
-                        
-                        <div class="status-badge" :class="isEquipped(currentDecorItem.hash) ? 'equipped' : 'stored'">
-                            {{ isEquipped(currentDecorItem.hash) ? 'EQUIPPED' : 'IN INVENTORY' }}
-                        </div>
-
+                        <div class="status-badge" :class="isEquipped(currentDecorItem.hash) ? 'equipped' : 'stored'">{{ isEquipped(currentDecorItem.hash) ? 'EQUIPPED' : 'IN INVENTORY' }}</div>
                         <h2 class="decor-item-name">Item {{ currentDecorIndex + 1 }}</h2>
-                        
                         <div class="decor-nav-row">
                             <button class="nav-arrow" @click="prevItem">❮</button>
                             <span class="decor-counter">{{ currentDecorIndex + 1 }} / {{ currentCategoryItems.length }}</span>
                             <button class="nav-arrow" @click="nextItem">❯</button>
                         </div>
-
-                        <button v-if="isEquipped(currentDecorItem.hash)" class="buy-btn-small btn-danger" @click="toggleEquip(currentDecorItem.hash, false)">
-                            UNEQUIP
-                        </button>
-                        <button v-else class="buy-btn-small" @click="toggleEquip(currentDecorItem.hash, true)">
-                            EQUIP
-                        </button>
+                        <button v-if="isEquipped(currentDecorItem.hash)" class="buy-btn-small btn-danger" @click="toggleEquip(currentDecorItem.hash, false)">UNEQUIP</button>
+                        <button v-else class="buy-btn-small" @click="toggleEquip(currentDecorItem.hash, true)">EQUIP</button>
                     </div>
-                </div>
-                
-                <div style="position:absolute; bottom: 30px; color: #666; font-size: 12px;">
-                    Use Arrow Keys ◀ ▶ to change items
                 </div>
             </div>
 
             <div v-else-if="subMode === 'decorate_cat' && selectedHorse" class="manage-action-view">
-                <div class="selected-horse-header">
-                    <h1>อุปกรณ์ตกแต่งม้า</h1>
-                    <div class="sub-info">เลือกหมวดหมู่ที่ต้องการ</div>
-                </div>
-                
-                <div class="carousel-container-wide">
+                 <div class="selected-horse-header"><h1>อุปกรณ์ตกแต่งม้า</h1></div>
+                 <div class="carousel-container-wide">
                     <button class="nav-arrow left" @click="scrollLeftCat">❮</button>
-
                     <div class="decor-grid-6">
-                        <div 
-                            v-for="(category, index) in visibleDecorCats" 
-                            :key="index" 
-                            class="showroom-card"
-                            @click="openDecorateItems(category)"
-                        >
-                            <div class="card-center-icon">
-                                <img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" />
-                            </div>
-                            <div class="card-body">
-                               <h3 class="horse-name-show">{{ formatCategoryName(category) }}</h3>
-                               <p class="horse-breed-show">{{ compData[category] ? Object.keys(compData[category]).length : 0 }} Items</p>
-                            </div>
+                        <div v-for="(category, index) in visibleDecorCats" :key="index" class="showroom-card" @click="openDecorateItems(category)">
+                            <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" /></div>
+                            <div class="card-body"><h3 class="horse-name-show">{{ formatCategoryName(category) }}</h3><p class="horse-breed-show">{{ compData[category] ? Object.keys(compData[category]).length : 0 }} Items</p></div>
                         </div>
                     </div>
-
                     <button class="nav-arrow right" @click="scrollRightCat">❯</button>
                 </div>
             </div>
 
             <div v-else-if="subMode === 'decorate_item' && selectedHorse" class="manage-action-view">
-                <div class="selected-horse-header">
-                    <h1>{{ formatCategoryName(selectedDecorCategory) }}</h1>
-                </div>
-
-                <div class="carousel-container">
+                 <div class="selected-horse-header"><h1>{{ formatCategoryName(selectedDecorCategory) }}</h1></div>
+                 <div class="carousel-container">
                     <div class="decor-selector-center">
-                        
                         <h2 class="decor-item-name" v-if="getItemPrice(currentDecorItem) > 0">${{ getItemPrice(currentDecorItem) }}</h2>
                         <h2 class="decor-item-name" v-else>ฟรี</h2>
-                        
                         <div class="decor-nav-row">
                             <button class="nav-arrow" @click="prevItem">❮</button>
                             <span class="decor-counter">รายการที่ {{ currentDecorIndex + 1 }} จาก {{ currentCategoryItems.length }}</span>
                             <button class="nav-arrow" @click="nextItem">❯</button>
                         </div>
-
-                        <button class="buy-btn-small" @click="buyDecoration">
-                            ซื้อ / สวมใส่
-                        </button>
+                        <button class="buy-btn-small" @click="buyDecoration">ซื้อ / สวมใส่</button>
                     </div>
                 </div>
             </div>
@@ -281,66 +208,10 @@
       </template>
 
 
-      <template v-if="currentTab === 'shop'">
-        <div class="sidebar flat-panel">
-          <div class="sidebar-header">
-            <h2 class="stable-title">MARKETPLACE</h2>
-          </div>
-          <div class="horse-list-wrapper custom-scroll">
-            <div 
-              v-for="(horse, index) in currentList" 
-              :key="index"
-              class="horse-card"
-              :class="{ selected: isSelected(horse) }"
-              @click="selectHorse(horse)"
-              @mouseenter="onHorseHover(horse)"
-            >
-              <div class="card-icon">
-                <img src="@/assets/img/buy-horse-icon.png" class="white-icon-small" />
-              </div>
-              <div class="card-info">
-                <h3 class="horse-name">{{ getHorseName(horse) }}</h3>
-                <p class="horse-breed">{{ horse.breed || horse.model }}</p>
-                <div class="price-tag">
-                  <span v-if="horse.colors && Object.values(horse.colors)[0].cashPrice > 0" class="price-text">
-                    ${{ Object.values(horse.colors)[0].cashPrice }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="details-panel flat-panel" v-if="selectedHorse">
-            <div class="details-header">
-              <h1>{{ getHorseName(selectedHorse) }}</h1>
-              <div class="sub-info">
-                  <span>{{ selectedHorse.gender || 'Stallion' }}</span> • 
-                  <span>{{ selectedHorse.breed || selectedHorse.model }}</span>
-              </div>
-            </div>
-            <div class="stats-wrapper">
-              <HorseStats :stats="selectedHorse.stats || {}" />
-            </div>
-            <div class="action-bar">
-              <div class="shop-form">
-                 <div class="form-group" v-if="selectedHorse.colors">
-                     <label>Select Color</label>
-                     <select v-model="selectedColorModel" class="custom-input">
-                         <option v-for="(data, model) in selectedHorse.colors" :key="model" :value="model">
-                             {{ data.color }} - ${{ data.cashPrice }}
-                         </option>
-                     </select>
-                 </div>
-                 <div class="form-group">
-                     <label>Name your horse</label>
-                     <input type="text" v-model="newHorseName" placeholder="Enter horse name..." class="custom-input" maxlength="20" />
-                 </div>
-                 <button class="action-btn btn-white" @click="buyHorse" :disabled="!newHorseName">PURCHASE (${{ getSelectedPrice() }})</button>
-              </div>
-            </div>
-        </div>
-      </template>
+      <ShopView 
+        v-if="currentTab === 'shop'" 
+        @close-menu="closeMenu" 
+      />
 
       <button class="close-btn" @click="closeMenu">✕</button>
     </div>
@@ -349,12 +220,8 @@
       <p style="text-align: center; color: #fff;">คุณแน่ใจหรือไม่ว่าต้องการปล่อยม้าตัวนี้? <br> คุณจะไม่ได้รับเงินคืน</p>
       <div class="divider-menu-top" style="margin-top: 1rem; width: 100%; height: 1px; background: rgba(255,255,255,0.2);"></div>
       <div class="action-bar" style="flex-direction: row; gap: 10px; margin-top: 20px;">
-        <button @click="confirmRelease" class="action-btn btn-danger">
-          ยืนยัน
-        </button>
-        <button @click="showModal = false" class="action-btn btn-white">
-          ยกเลิก
-        </button>
+        <button @click="confirmRelease" class="action-btn btn-danger">ยืนยัน</button>
+        <button @click="showModal = false" class="action-btn btn-white">ยกเลิก</button>
       </div>
     </ConfirmationModal>
 
@@ -363,38 +230,48 @@
 
 <script>
 import { mapState, mapGetters } from 'vuex';
+import api from '@/api';
 import HorseStats from '@/components/HorseStats.vue'; 
 import HorseStorage from '@/components/HorseStorage.vue';
 import ConfirmationModal from '@/components/ConfirmationModal.vue'; 
-import api from '@/api';
+
+// [IMPORT ใหม่]
+import ShopView from '@/components/ShopView.vue'; 
 
 export default {
   name: "StableDashboard",
-  components: { HorseStats, HorseStorage, ConfirmationModal }, 
+  components: { 
+    HorseStats, 
+    HorseStorage, 
+    ConfirmationModal,
+    ShopView // [REGISTER]
+  }, 
   data() {
       return {
           viewMode: 'home',
           subMode: 'list',
-          selectedColorModel: null,
-          newHorseName: "",
+          
+          // ตัวแปร Shop เดิม ลบออกได้เลยเพราะย้ายไป ShopView แล้ว
+          // selectedColorModel: null,
+          // newHorseName: "",
+          
           reviveCost: 20,
           selectedDecorCategory: null,
           currentDecorIndex: 0,
           scrollOffsetCat: 0,
           showModal: false,
-          hoveredHorse: null // [เพิ่ม] เก็บข้อมูลม้าที่กำลัง Hover
+          hoveredHorse: null 
       }
   },
   computed: {
     ...mapState(['location', 'currentTab', 'selectedHorse', 'compData']),
     ...mapGetters(['currentList']),
     
+    // ... Computed ของ Owned Equipment คงเดิม ...
     decorCategoryList() {
         if (!this.compData) return [];
         return Object.keys(this.compData).sort();
     },
-    
-    // --- OWNED EQUIPMENT LOGIC (NEW) ---
     ownedItemsList() {
         if (!this.selectedHorse) return [];
         let owned = [];
@@ -413,9 +290,7 @@ export default {
         }
         return owned.map(Number);
     },
-    hasAnyOwnedItems() {
-        return this.ownedItemsList.length > 0;
-    },
+    hasAnyOwnedItems() { return this.ownedItemsList.length > 0; },
     ownedCategories() {
         if (!this.compData) return [];
         return this.decorCategoryList.filter(cat => this.getOwnedCountInCategory(cat) > 0);
@@ -449,15 +324,11 @@ export default {
 
   watch: {
       selectedHorse(newVal) {
-          if (this.currentTab === 'shop' && newVal && newVal.colors) {
-              this.selectedColorModel = Object.keys(newVal.colors)[0];
-              this.previewHorse(this.selectedColorModel); 
-              this.newHorseName = ""; 
-          } else if (this.currentTab === 'owned' && newVal) {
+          // เหลือแค่ Logic ของ Owned Horse
+          if (this.currentTab === 'owned' && newVal) {
               this.previewMyHorse(newVal);
           }
       },
-      selectedColorModel(newVal) { if (this.currentTab === 'shop' && newVal) this.previewHorse(newVal); },
       currentDecorIndex() { 
           if (this.subMode === 'decorate_item') this.previewDecoration(); 
       }
@@ -476,20 +347,24 @@ export default {
         }
     },
     
-    goToShop() { this.$store.dispatch('selectTab', 'shop'); this.subMode = 'list'; },
+    goToShop() { 
+        this.$store.dispatch('selectTab', 'shop'); 
+        // ไม่ต้อง set subMode = 'list' แล้ว เพราะ ShopView จัดการเอง
+    },
     
-    // [แก้ไข] อัปเดต hoveredHorse เมื่อเอาเมาส์ชี้
     onHorseHover(horse) {
         this.hoveredHorse = horse;
         if (this.currentTab === 'owned') { this.previewMyHorse(horse); } 
-        else if (this.currentTab === 'shop' && horse.colors) { this.previewHorse(Object.keys(horse.colors)[0]); }
+        // Logic Shop ย้ายไป ShopView แล้ว
     },
     
     enterMode(mode) { 
         this.$store.dispatch('selectTab', mode); 
         this.viewMode = 'content'; 
         this.subMode = 'list'; 
-        this.hoveredHorse = null; // รีเซ็ตค่า Hover
+        this.hoveredHorse = null; 
+        // เคลียร์ค่าม้าที่เลือกค้างไว้ เพื่อให้หน้า Shop เริ่มต้นที่รายการสินค้า
+        this.$store.dispatch('selectHorse', null);
     },
     
     getBackLabel() {
@@ -510,7 +385,7 @@ export default {
             if (this.subMode === 'actions') {
                 this.subMode = 'list';
                 this.$store.dispatch('selectHorse', null);
-                this.hoveredHorse = null; // เคลียร์ Hover เมื่อกลับหน้ารายการ
+                this.hoveredHorse = null; 
                 return;
             }
         }
@@ -532,7 +407,7 @@ export default {
     },
     getHorseName(horse) { return horse.name || horse.breed || "Unknown Horse"; },
     getBondingLevel(xp) { if (xp >= 2400) return 4; if (xp >= 1700) return 3; if (xp >= 900) return 2; return 1; },
-    getSelectedPrice() { return (this.selectedHorse && this.selectedHorse.colors && this.selectedColorModel) ? this.selectedHorse.colors[this.selectedColorModel].cashPrice : 0; },
+    
     closeMenu() {
       api.post("CloseStable", { MenuAction: "Close" });
       this.$store.dispatch('closeDashboard');
@@ -541,7 +416,7 @@ export default {
     previewHorse(modelName) { api.post("loadHorse", { horseModel: modelName }); },
     previewMyHorse(horse) { api.post("loadMyHorse", { HorseModel: horse.model, HorseComp: horse.components, HorseId: horse.id, HorseGender: horse.gender }); },
     
-    // --- CATEGORY & NAVIGATION LOGIC ---
+    // ... Methods ของ Equipment/Decorate ...
     openDecorateCategories() {
         api.post("selectHorse", { horseId: this.selectedHorse.id });
         this.subMode = 'decorate_cat'; this.scrollOffsetCat = 0;
@@ -555,14 +430,12 @@ export default {
         const list = (this.subMode === 'equipment_cat') ? this.ownedCategories : this.decorCategoryList;
         if (this.scrollOffsetCat + 6 < list.length) this.scrollOffsetCat++;
     },
-    
     openDecorateItems(category) {
         this.selectedDecorCategory = category; this.currentDecorIndex = 0; this.subMode = 'decorate_item'; this.previewDecoration();
     },
     openEquipmentItems(category) {
         this.selectedDecorCategory = category; this.currentDecorIndex = 0; this.subMode = 'equipment_item';
     },
-    
     nextItem() {
         if (this.currentDecorIndex < this.currentCategoryItems.length - 1) this.currentDecorIndex++;
         else this.currentDecorIndex = 0;
@@ -571,13 +444,11 @@ export default {
         if (this.currentDecorIndex > 0) this.currentDecorIndex--;
         else this.currentDecorIndex = this.currentCategoryItems.length - 1;
     },
-    
     previewDecoration() {
         const item = this.currentDecorItem;
         const price = this.getItemPrice(item);
         if (item && item.hash) { api.post(this.selectedDecorCategory, { hash: item.hash, price: price, id: 0 }); }
     },
-    
     buyDecoration() {
         const item = this.currentDecorItem;
         if (!item || !item.hash) return;
@@ -590,7 +461,6 @@ export default {
         
         setTimeout(() => this.closeMenu(), 500);
     },
-
     getOwnedCountInCategory(category) {
         const items = this.compData[category];
         if (!items) return 0;
@@ -612,22 +482,13 @@ export default {
         }
         setTimeout(() => this.closeMenu(), 300);
     },
-
     formatCategoryName(name) { return name ? name.replace(/([A-Z])/g, ' $1').trim() : ''; },
-    isSelected(horse) { return this.selectedHorse && ((this.currentTab === 'owned' && this.selectedHorse.id === horse.id) || (this.currentTab === 'shop' && this.selectedHorse.breed === horse.breed)); },
     
     performAction(action) {
         if (!this.selectedHorse) return;
-        
-        if (action === 'release') {
-            this.showModal = true;
-            return;
-        }
-
+        if (action === 'release') { this.showModal = true; return; }
         if (action === 'decorate') { this.openDecorateCategories(); return; }
-        
         api.post("horseAction", { action: action, horseId: this.selectedHorse.id, horseModel: this.selectedHorse.model });
-        
         if (['call', 'return'].includes(action)) this.closeMenu();
         if (['heal', 'setMain'].includes(action)) setTimeout(() => this.closeMenu(), 300);
     },
@@ -636,12 +497,6 @@ export default {
         api.post("horseAction", { action: 'release', horseId: this.selectedHorse.id, horseModel: this.selectedHorse.model });
         this.showModal = false;
         this.closeMenu();
-    },
-    
-    buyHorse() {
-        if(!this.selectedColorModel) return;
-        api.post("BuyHorse", { ModelH: this.selectedColorModel, name: this.newHorseName, currencyType: "cash", isTrainer: false });
-        setTimeout(() => this.closeMenu(), 500);
     }
   }
 };
@@ -651,20 +506,16 @@ export default {
 @import url('https://fonts.googleapis.com/css2?family=Pridi:wght@300;400;500;600;700&display=swap');
 * { font-family: 'Pridi', serif !important; }
 .dashboard-container { display: flex; width: 100vw; height: 100vh; position: relative; color: #f0f0f0; }
-.flat-panel { background: rgba(15, 15, 15, 0.96); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 4px; }
 
-/* Status Badge (New) */
-.status-badge { padding: 5px 15px; border-radius: 4px; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px; }
-.status-badge.equipped { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
-.status-badge.stored { background: rgba(255, 255, 255, 0.1); color: #aaa; border: 1px solid #666; }
-
+/* Styles ของเดิม (คงไว้ทั้งหมด) */
 .btn-danger { background: #c0392b; color: #fff; box-shadow: none !important; }
 .btn-danger:hover { background: #e74c3c; box-shadow: none !important; }
 
+/* ... Styles อื่นๆ ใน Dashboard.vue ที่ไม่ได้ใช้ใน ShopView แล้ว ก็ปล่อยไว้ได้ หรือจะลบออกก็ได้ถ้าไม่ได้ใช้ ... */
+/* เช่น .sidebar, .details-panel ถ้าไม่ได้ใช้แล้วก็ลบออกได้ */
+
 .empty-notif { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #888; }
 .empty-notif h2 { color: #fff; font-size: 24px; margin-bottom: 10px; }
-
-/* ... Styles เดิม ... */
 .carousel-container { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 20; }
 .carousel-container-wide { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: row; align-items: center; gap: 20px; z-index: 20; }
 .decor-grid-6 { display: flex; gap: 15px; }
@@ -675,7 +526,6 @@ export default {
 .decor-nav-row { display: flex; align-items: center; gap: 15px; font-size: 16px; color: #ddd; }
 .buy-btn-small { margin-top: 15px; padding: 10px 40px; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; border-radius: 30px; font-size: 13px; letter-spacing: 1px; transition: 0.2s; box-shadow: none !important; }
 .buy-btn-small:hover { background: #d4af37; color: #fff; transform: translateY(-2px); box-shadow: none !important; }
-
 .empty-state-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); z-index: 5; }
 .empty-content { text-align: center; }
 .white-icon-large { width: 120px; height: 120px; object-fit: contain; filter: brightness(0) invert(1); opacity: 0.5; margin-bottom: 20px; }
@@ -713,18 +563,6 @@ export default {
 .selected-horse-header { position: absolute; top: 5%; left: 0; width: 100%; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,0.8); pointer-events: none; z-index: 20; }
 .selected-horse-header h1 { font-size: 48px; margin: 0; font-weight: 600; color: #fff; letter-spacing: 2px; }
 .selected-horse-header .sub-info { font-size: 16px; color: #ccc; margin-top: 5px; font-weight: 300; }
-.sidebar { width: 360px; height: 85%; margin: auto 0 auto 60px; display: flex; flex-direction: column; padding: 25px; }
-.sidebar-header { margin-bottom: 20px; }
-.stable-title { font-size: 20px; margin: 0; color: #fff; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-.horse-list-wrapper { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 10px; }
-.horse-card { display: flex; align-items: center; background: rgba(255,255,255,0.02); padding: 12px 15px; border-radius: 4px; border-left: 3px solid transparent; cursor: pointer; transition: 0.2s; }
-.horse-card:hover { background: rgba(255,255,255,0.04); }
-.horse-card.selected { background: rgba(255,255,255,0.07); border-left-color: #fff; }
-.card-icon { width: 36px; height: 36px; margin-right: 15px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.03); border-radius: 50%; }
-.card-info h3 { font-size: 15px; margin: 0; font-weight: 500; color: #eee; }
-.card-info p { font-size: 12px; color: #666; margin: 0; }
-.price-text { color: #fff; font-weight: 600; font-size: 13px; }
-.details-panel { position: absolute; right: 60px; bottom: 60px; width: 340px; padding: 30px; }
 .home-menu { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); }
 .showroom-header { text-align: center; margin-bottom: 60px; }
 .showroom-header h1 { font-size: 56px; margin: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 4px; color: #fff; }
@@ -761,19 +599,14 @@ export default {
 .btn-text { background: transparent; color: #444; font-size: 11px; margin-top: 5px; }
 .btn-text:hover { color: #888; }
 .manage-stats-wrapper {
-  position: absolute;
-  top: 40%;           /* อยู่กึ่งกลางในแนวตั้ง */
-  left: 80px;         /* เว้นระยะจากขอบซ้าย 60px (ให้ตรงกับแนวปุ่มเมนูอื่นๆ) */
-  transform: translateY(-50%); /* ขยับขึ้น 50% ของความสูงตัวเองเพื่อให้กลางเป๊ะ */
-  width: 320px;       /* ปรับขนาดความกว้างตามต้องการ */
-  z-index: 20;
+  position: absolute; top: 40%; left: 80px;         
+  transform: translateY(-50%); width: 320px; z-index: 20;
 }
 .manage-info-right {
-  position: absolute;
-  top: 40%;      /* ระดับความสูงเดียวกับฝั่งซ้าย (ปรับเลขนี้ตามที่แก้ในฝั่งซ้าย) */
-  right: 80px;   /* ชิดขวา 60px */
-  transform: translateY(-50%);
-  width: 320px;
-  z-index: 20;
+  position: absolute; top: 40%; right: 80px;   
+  transform: translateY(-50%); width: 320px; z-index: 20;
 }
+.status-badge { padding: 5px 15px; border-radius: 4px; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px; }
+.status-badge.equipped { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+.status-badge.stored { background: rgba(255, 255, 255, 0.1); color: #aaa; border: 1px solid #666; }
 </style>
