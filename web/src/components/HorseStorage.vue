@@ -17,7 +17,7 @@
         </div>
 
         <button class="action-button-small" @click="openCargo">
-          OPEN CARGO
+          เปิดกระเป๋า
         </button>
 
       </div>
