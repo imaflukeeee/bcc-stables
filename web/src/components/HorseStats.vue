@@ -8,26 +8,31 @@
     <div class="stats-list">
       <div class="stat-item" v-for="(val, label) in displayStats" :key="label">
         
-        <div class="stat-top-row">
-           <div class="stat-label-group">
-              <img :src="getIcon(label)" class="stat-icon-img" alt="icon" />
-              <span class="stat-name">{{ label }}</span>
-           </div>
-           
-           <div class="stat-numbers-wrapper">
-              <span class="val-current">{{ val }}</span>
-              <span class="val-divider">/</span>
-              <span class="val-max">10</span>
-           </div>
+        <div class="stat-icon-box">
+           <img :src="getIcon(label)" class="stat-icon-img" alt="icon" />
         </div>
 
-        <div class="stat-dashed-bar">
-           <div 
-             v-for="n in 10" 
-             :key="n" 
-             class="dash-segment"
-             :class="{ active: n <= val }"
-           ></div>
+        <div class="stat-content-right">
+            
+            <div class="stat-top-row">
+               <span class="stat-name">{{ label }}</span>
+               
+               <div class="stat-numbers-wrapper">
+                  <span class="val-current">{{ val }}</span>
+                  <span class="val-divider">/</span>
+                  <span class="val-max">10</span>
+               </div>
+            </div>
+
+            <div class="stat-dashed-bar">
+               <div 
+                 v-for="n in 10" 
+                 :key="n" 
+                 class="dash-segment"
+                 :class="{ active: n <= val }"
+               ></div>
+            </div>
+
         </div>
 
       </div>
@@ -81,13 +86,13 @@ export default {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Pridi:wght@300;400;500;600;700&display=swap');
 
-/* คอนเทนเนอร์หลัก - ลบพื้นหลังและขอบออก */
+/* คอนเทนเนอร์หลัก */
 .stats-container-large {
   width: 100%;
-  padding: 0; /* ลบ padding ออกเพื่อให้ชิดขอบหรือจัดวางตาม layout ภายนอก */
-  background: transparent; /* พื้นหลังโปร่งใส */
-  border: none; /* ไม่มีเส้นขอบ */
-  box-shadow: none; /* ไม่มีเงา */
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   font-family: 'Pridi', serif;
 }
 
@@ -103,7 +108,7 @@ export default {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  color: #f1c40f; /* Fallback */
+  color: #f1c40f; 
   text-shadow: none; 
 }
 
@@ -119,35 +124,52 @@ export default {
 .stats-list {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 15px; /* ปรับระยะห่างระหว่างรายการเล็กน้อย */
 }
 
+/* ปรับ Layout เป็นแนวนอน (Flex Row) */
 .stat-item {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row; 
+  align-items: center; /* จัดกึ่งกลางแนวตั้ง */
+  gap: 12px; /* ระยะห่างระหว่างกล่องไอคอนกับเนื้อหา */
 }
 
-/* แถวบน: ไอคอน ชื่อ ค่าพลัง */
-.stat-top-row {
+/* สไตล์กล่องไอคอนด้านซ้าย (เพิ่มใหม่) */
+.stat-icon-box {
+  width: 38px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.05); /* พื้นหลังจางๆ */
+  border: 1px solid rgba(255, 255, 255, 0.1); /* เส้นขอบบางๆ */
+  border-radius: 6px;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 2px;
-}
-
-.stat-label-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-shrink: 0; /* ห้ามหด */
 }
 
 /* รูปไอคอน */
 .stat-icon-img {
-  width: 14px;
-  height: 14px;
+  width: 20px; /* ปรับขนาดไอคอนให้พอดีกับกล่อง */
+  height: 20px;
   object-fit: contain;
   filter: brightness(0) invert(1) drop-shadow(0 0 2px rgba(255,255,255,0.4)); 
+}
+
+/* ส่วนเนื้อหาด้านขวา (ชื่อ + หลอด) */
+.stat-content-right {
+  flex: 1; /* ขยายเต็มพื้นที่ที่เหลือ */
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* ระยะห่างระหว่างบรรทัดชื่อกับหลอด */
+}
+
+/* แถวบน: ชื่อ ค่าพลัง */
+.stat-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0; /* ลบ margin เดิมออก */
 }
 
 /* ชื่อค่าพลัง */
