@@ -4,7 +4,7 @@
     <div v-if="viewMode === 'home'" class="home-menu">
       <div class="showroom-header">
         <h1>{{ location }}</h1>
-        <p>Select an option to proceed</p>
+        <p>เลือกตัวเลือกเพื่อดำเนินต่อ</p>
       </div>
 
       <div class="menu-grid">
@@ -13,8 +13,8 @@
             <div class="big-icon">
                 <img src="@/assets/img/head-horse-icon.png" alt="Manage Stable" class="white-icon" />
             </div>
-            <h2>Manage Stable</h2>
-            <p>View and manage your horses</p>
+            <h2>ดูแลและจัดการคอกม้า</h2>
+            <p>ตรวจเช็กม้าคู่หูของคุณแล้วจัดการดูแลให้พร้อมเดินทาง</p>
           </div>
         </div>
 
@@ -23,13 +23,13 @@
             <div class="big-icon">
                 <img src="@/assets/img/buy-horse-icon.png" alt="Buy Horse" class="white-icon" />
             </div>
-            <h2>Buy Horse</h2>
-            <p>Purchase new premium horses</p>
+            <h2>เลือกซื้อม้าตัวใหม่</h2>
+            <p>ซื้อม้าชั้นเยี่ยมตัวใหม่เข้าฝูง</p>
           </div>
         </div>
       </div>
       
-      <button class="close-btn-home" @click="closeMenu">EXIT</button>
+      <button class="close-btn-home" @click="closeMenu">ออกจากที่นี่</button>
     </div>
 
 
@@ -46,10 +46,10 @@
                 <div class="big-icon">
                     <img src="@/assets/img/head-horse-icon.png" class="white-icon" style="opacity: 0.5;" />
                 </div>
-                <h2>No Horses Found</h2>
-                <p>You don't own any horses yet.</p>
+                <h2>คอกว่าง… ไม่มีม้าให้พบเห็น</h2>
+                <p>คุณยังไม่มีม้าคู่ใจไว้ใช้งานเลยสักตัว</p>
                 <button class="action-btn btn-white" style="margin-top: 20px; width: auto; padding: 10px 40px;" @click="goToShop">
-                    GO TO MARKET
+                    ตลาดม้า
                 </button>
             </div>
         </div>
@@ -106,44 +106,44 @@
                 <div class="bottom-showroom-list action-menu-list">
                     <div class="showroom-card" @click="performAction('call')" :class="{ disabled: selectedHorse.dead == 1 }">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/whistle-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">Call</h3><p class="horse-breed-show">Whistle</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">เรียกม้า</h3><p class="horse-breed-show">ผิวปากเรียกม้าคู่ใจ</p></div>
                     </div>
                     <div class="showroom-card" @click="performAction('return')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/return-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">Return</h3><p class="horse-breed-show">To Stable</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">ส่งม้ากลับคอก</h3><p class="horse-breed-show">พาคู่หูกลับคอก</p></div>
                     </div>
                     <div class="showroom-card" @click="performAction('decorate')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">Decorate</h3><p class="horse-breed-show">Customize</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">ซื้ออุปกรณ์ตกแต่ง</h3><p class="horse-breed-show">เลือกซื้ออุปกรณ์และตกแต่งม้าคู่ใจ</p></div>
                     </div>
                     <div class="showroom-card" @click="performAction('heal')" :class="{ disabled: !(selectedHorse.dead == 1 || selectedHorse.writhe == 1) }">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/revive-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">Heal</h3><p class="horse-breed-show" v-if="reviveCost > 0">${{ reviveCost }}</p><p class="horse-breed-show" v-else>Free</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">รักษาม้า</h3><p class="horse-breed-show" v-if="reviveCost > 0">${{ reviveCost }}</p><p class="horse-breed-show" v-else>Free</p></div>
                     </div>
                     <div class="showroom-card" @click="performAction('setMain')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/star-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">Set Main</h3><p class="horse-breed-show">Favorite</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">ตั้งเป็นม้าตัวหลัก</h3><p class="horse-breed-show">ตั้งม้าตัวนี้เป็นหัวใจของคอก</p></div>
                     </div>
                     <div class="showroom-card" @click="manageEquipment">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-manage-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show">Equipment</h3><p class="horse-breed-show">Manage</p></div>
+                        <div class="card-body"><h3 class="horse-name-show">อุปกรณ์ตกแต่ง</h3><p class="horse-breed-show">ดูแลและจัดอุปกรณ์ม้าคู่ใจ</p></div>
                     </div>
                     <div class="showroom-card danger-card" @click="performAction('release')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/release-icon.png" class="white-icon-medium" /></div>
-                        <div class="card-body"><h3 class="horse-name-show text-danger">Release</h3><p class="horse-breed-show">Delete</p></div>
+                        <div class="card-body"><h3 class="horse-name-show text-danger">ปล่อยม้า</h3><p class="horse-breed-show">ปล่อยคู่หูของคุณไปตามทาง</p></div>
                     </div>
                 </div>
             </div>
 
             <div v-else-if="subMode === 'equipment_cat' && selectedHorse" class="manage-action-view">
                 <div class="selected-horse-header">
-                    <h1>Manage Equipment</h1>
-                    <div class="sub-info">Select a category to view owned items</div>
+                    <h1>จัดการอุปกรณ์ตกแต่งม้า</h1>
+                    <div class="sub-info">เลือกประเภทเพื่อดูสิ่งของที่เป็นของคุณ</div>
                 </div>
                 
                 <div v-if="!hasAnyOwnedItems" class="empty-notif">
-                    <h2>No Equipment Owned</h2>
-                    <p>Go to "Decorate" menu to buy items first.</p>
+                    <h2>ยังไม่มีอุปกรณ์</h2>
+                    <p>ไปที่เมนู "ซื้ออุปกรณ์ตกแต่ง" เลือกซื้อของให้ม้าก่อน</p>
                 </div>
 
                 <div v-else class="carousel-container-wide">
@@ -211,8 +211,8 @@
 
             <div v-else-if="subMode === 'decorate_cat' && selectedHorse" class="manage-action-view">
                 <div class="selected-horse-header">
-                    <h1>Decoration Shop</h1>
-                    <div class="sub-info">Select a category</div>
+                    <h1>อุปกรณ์ตกแต่งม้า</h1>
+                    <div class="sub-info">เลือกหมวดหมู่ที่ต้องการ</div>
                 </div>
                 
                 <div class="carousel-container-wide">
@@ -248,16 +248,16 @@
                     <div class="decor-selector-center">
                         
                         <h2 class="decor-item-name" v-if="getItemPrice(currentDecorItem) > 0">${{ getItemPrice(currentDecorItem) }}</h2>
-                        <h2 class="decor-item-name" v-else>Free</h2>
+                        <h2 class="decor-item-name" v-else>ฟรี</h2>
                         
                         <div class="decor-nav-row">
                             <button class="nav-arrow" @click="prevItem">❮</button>
-                            <span class="decor-counter">Item {{ currentDecorIndex + 1 }} of {{ currentCategoryItems.length }}</span>
+                            <span class="decor-counter">รายการที่ {{ currentDecorIndex + 1 }} จาก {{ currentCategoryItems.length }}</span>
                             <button class="nav-arrow" @click="nextItem">❯</button>
                         </div>
 
                         <button class="buy-btn-small" @click="buyDecoration">
-                            BUY / EQUIP
+                            ซื้อ / สวมใส่
                         </button>
                     </div>
                 </div>
