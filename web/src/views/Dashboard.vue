@@ -128,13 +128,14 @@
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-manage-icon.png" class="white-icon-medium" /></div>
                         <div class="card-body"><h3 class="horse-name-show">อุปกรณ์ตกแต่ง</h3><p class="horse-breed-show">ดูแลและจัดอุปกรณ์ม้าคู่ใจ</p></div>
                     </div>
+                    
                     <div class="showroom-card danger-card" @click="performAction('release')">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/release-icon.png" class="white-icon-medium" /></div>
                         <div class="card-body"><h3 class="horse-name-show text-danger">ปล่อยม้า</h3><p class="horse-breed-show">ปล่อยคู่หูของคุณไปตามทาง</p></div>
                     </div>
                 </div>
             </div>
-
+            
             <div v-else-if="subMode === 'equipment_cat' && selectedHorse" class="manage-action-view">
                 <div class="selected-horse-header">
                     <h1>จัดการอุปกรณ์ตกแต่งม้า</h1>
@@ -331,18 +332,32 @@
       <button class="close-btn" @click="closeMenu">✕</button>
     </div>
 
+    <ConfirmationModal :visible="showModal" title="ยืนยันการปล่อยม้า" @close="showModal = false">
+      <p style="text-align: center; color: #fff;">คุณแน่ใจหรือไม่ว่าต้องการปล่อยม้าตัวนี้? <br> คุณจะไม่ได้รับเงินคืน</p>
+      <div class="divider-menu-top" style="margin-top: 1rem; width: 100%; height: 1px; background: rgba(255,255,255,0.2);"></div>
+      <div class="action-bar" style="flex-direction: row; gap: 10px; margin-top: 20px;">
+        <button @click="confirmRelease" class="action-btn btn-danger">
+          ยืนยัน
+        </button>
+        <button @click="showModal = false" class="action-btn btn-white">
+          ยกเลิก
+        </button>
+      </div>
+    </ConfirmationModal>
+
   </div>
 </template>
 
 <script>
 import { mapState, mapGetters } from 'vuex';
 import HorseStats from '@/components/HorseStats.vue'; 
-import HorseStorage from '@/components/HorseStorage.vue'; // <-- เพิ่มบรรทัดนี้
+import HorseStorage from '@/components/HorseStorage.vue';
+import ConfirmationModal from '@/components/ConfirmationModal.vue'; // [แก้ไข] Import Modal
 import api from '@/api';
 
 export default {
   name: "StableDashboard",
-  components: { HorseStats, HorseStorage },
+  components: { HorseStats, HorseStorage, ConfirmationModal }, // [แก้ไข] Register Modal
   data() {
       return {
           viewMode: 'home',
@@ -352,7 +367,8 @@ export default {
           reviveCost: 20,
           selectedDecorCategory: null,
           currentDecorIndex: 0,
-          scrollOffsetCat: 0
+          scrollOffsetCat: 0,
+          showModal: false // [แก้ไข] ตัวแปรควบคุม Modal
       }
   },
   computed: {
@@ -369,17 +385,14 @@ export default {
         if (!this.selectedHorse) return [];
         let owned = [];
         try {
-            // 1. ของที่ซื้อเก็บไว้
             if (this.selectedHorse.owned_components && this.selectedHorse.owned_components !== '[]') {
                 const parsedOwned = JSON.parse(this.selectedHorse.owned_components);
                 owned = [...parsedOwned];
             }
-            // 2. ของที่ใส่อยู่ (ต้องนับว่าเป็นของที่มีด้วย)
             if (this.selectedHorse.components && this.selectedHorse.components !== '[]') {
                 const equipped = JSON.parse(this.selectedHorse.components);
                 owned = [...owned, ...equipped];
             }
-            // ลบตัวซ้ำ
             owned = [...new Set(owned)];
         } catch (e) { 
             console.log("Error parsing components"); 
@@ -390,7 +403,6 @@ export default {
         return this.ownedItemsList.length > 0;
     },
     ownedCategories() {
-        // กรองหาหมวดที่มีของอย่างน้อย 1 ชิ้น
         if (!this.compData) return [];
         return this.decorCategoryList.filter(cat => this.getOwnedCountInCategory(cat) > 0);
     },
@@ -400,22 +412,17 @@ export default {
         return list.slice(this.scrollOffsetCat, this.scrollOffsetCat + 6);
     },
     visibleDecorCats() {
-        // สำหรับหน้า Shop (แสดงทุกหมวด)
         const list = this.decorCategoryList;
         return list.slice(this.scrollOffsetCat, this.scrollOffsetCat + 6);
     },
-    
     currentCategoryItems() {
         if (!this.selectedDecorCategory || !this.compData) return [];
         let items = this.compData[this.selectedDecorCategory];
         if (typeof items === 'object' && !Array.isArray(items)) items = Object.values(items);
-        
-        // ถ้าอยู่ในโหมดจัดการอุปกรณ์ (Equipment) ให้กรองเอาเฉพาะของที่มี
         if (this.subMode === 'equipment_item') {
             const owned = this.ownedItemsList;
             return items.filter(item => owned.includes(Number(item.hash)));
         }
-        // ถ้าอยู่หน้า Shop (Decorate) ให้แสดงทั้งหมด
         return items; 
     },
     currentDecorItem() {
@@ -438,7 +445,6 @@ export default {
       },
       selectedColorModel(newVal) { if (this.currentTab === 'shop' && newVal) this.previewHorse(newVal); },
       currentDecorIndex() { 
-          // Preview เฉพาะตอนอยู่หน้า Shop
           if (this.subMode === 'decorate_item') this.previewDecoration(); 
       }
   },
@@ -475,7 +481,7 @@ export default {
             if (this.subMode === 'equipment_item') { this.subMode = 'equipment_cat'; return; }
             if (this.subMode === 'decorate_cat' || this.subMode === 'equipment_cat') {
                 this.subMode = 'actions'; 
-                this.previewMyHorse(this.selectedHorse); // Reset preview to original horse
+                this.previewMyHorse(this.selectedHorse); 
                 return;
             }
             if (this.subMode === 'actions') {
@@ -493,10 +499,7 @@ export default {
     },
     openHorseCargo() {
         if (!this.selectedHorse || !this.selectedHorse.id) return;
-        // เรียก Event ไปยัง backend (Lua) เพื่อเปิด UI กระเป๋า
         api.post("OpenHorseCargo", { horseId: this.selectedHorse.id });
-        
-        // ปิดเมนู Stable ทันทีหลังจากเปิดกระเป๋า
         this.closeMenu(); 
     },
     selectHorse(horse) {
@@ -519,7 +522,6 @@ export default {
         api.post("selectHorse", { horseId: this.selectedHorse.id });
         this.subMode = 'decorate_cat'; this.scrollOffsetCat = 0;
     },
-    // [NEW] เปิดเมนูจัดการอุปกรณ์ (Owned)
     manageEquipment() {
         api.post("selectHorse", { horseId: this.selectedHorse.id });
         this.subMode = 'equipment_cat'; this.scrollOffsetCat = 0;
@@ -535,7 +537,6 @@ export default {
     },
     openEquipmentItems(category) {
         this.selectedDecorCategory = category; this.currentDecorIndex = 0; this.subMode = 'equipment_item';
-        // ไม่ต้อง Preview เพราะจะโชว์ของที่มีอยู่แล้ว
     },
     
     nextItem() {
@@ -559,19 +560,13 @@ export default {
         const cashCost = item.cashPrice || item.price || 0;
         const goldCost = item.goldPrice || 0;
         
-        // 1. Preview
         api.post(this.selectedDecorCategory, { hash: item.hash, price: cashCost, id: 0 });
-        
-        // 2. Buy & Save Equipped
         api.post("CloseStable", { MenuAction: "save", cashPrice: cashCost, goldPrice: goldCost, currencyType: 0 });
-        
-        // 3. [IMPORTANT] Save Ownership Record
         api.post("horseAction", { action: 'saveOwned', horseId: this.selectedHorse.id, componentHash: item.hash });
         
         setTimeout(() => this.closeMenu(), 500);
     },
 
-    // --- EQUIPMENT MANAGEMENT HELPER ---
     getOwnedCountInCategory(category) {
         const items = this.compData[category];
         if (!items) return 0;
@@ -587,10 +582,8 @@ export default {
     },
     toggleEquip(hash, equip) {
         if (equip) {
-            // ใส่ของ (ใช้ระบบใส่ของที่มีอยู่แล้ว ไม่เสียเงิน)
             api.post("horseAction", { action: 'equipOwned', horseId: this.selectedHorse.id, componentHash: hash });
         } else {
-            // ถอดของ
             api.post("horseAction", { action: 'unequipOne', horseId: this.selectedHorse.id, componentHash: hash });
         }
         setTimeout(() => this.closeMenu(), 300);
@@ -601,10 +594,27 @@ export default {
     
     performAction(action) {
         if (!this.selectedHorse) return;
+        
+        // [แก้ไข] ดักจับ action 'release' เพื่อแสดง Modal แทนการเรียก API ทันที
+        if (action === 'release') {
+            this.showModal = true;
+            return;
+        }
+
         if (action === 'decorate') { this.openDecorateCategories(); return; }
+        
         api.post("horseAction", { action: action, horseId: this.selectedHorse.id, horseModel: this.selectedHorse.model });
-        if (['call', 'return', 'release'].includes(action)) this.closeMenu();
+        
+        // [แก้ไข] ลบ 'release' ออกจาก array นี้ เพราะเราจัดการแยกต่างหาก
+        if (['call', 'return'].includes(action)) this.closeMenu();
         if (['heal', 'setMain'].includes(action)) setTimeout(() => this.closeMenu(), 300);
+    },
+
+    // [แก้ไข] เพิ่มฟังก์ชันสำหรับปุ่ม "ยืนยัน" ใน Modal
+    confirmRelease() {
+        api.post("horseAction", { action: 'release', horseId: this.selectedHorse.id, horseModel: this.selectedHorse.model });
+        this.showModal = false;
+        this.closeMenu();
     },
     
     buyHorse() {

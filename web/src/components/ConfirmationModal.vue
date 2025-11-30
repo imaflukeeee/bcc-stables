@@ -1,12 +1,11 @@
 <template>
   <div class="modal-wrapper" v-if="visible">
     <div class="modal-overlay" @click="close"></div>
-    <div class="modal">
+    <div class="modal-container">
       <div class="modal-header">
-        <span>{{ title }}</span>
-        <!-- <button class="modal-close" @click="close">&times;</button> -->
+        <h3 class="modal-title">{{ title }}</h3>
       </div>
-      <div class="modal-body">
+      <div class="modal-content">
         <slot></slot>
       </div>
     </div>
@@ -23,31 +22,28 @@ export default {
     },
     title: {
       type: String,
-      default: "Modal Title",
+      default: "Confirmation",
     },
   },
   methods: {
     close() {
-      this.$emit("update:visible", false);
-    },
-  },
-  computed: {
-    isActive() {
-      return this.label == this.selectedPage;
+      // สามารถเลือกได้ว่าจะให้คลิกพื้นหลังแล้วปิดหรือไม่
+      // this.$emit("close");
     },
   },
 };
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Pridi:wght@300;400;500;600;700&display=swap');
+
 .modal-wrapper {
   position: fixed;
-  z-index: 9999;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -55,50 +51,55 @@ export default {
 
 .modal-overlay {
   position: absolute;
-  z-index: -1;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7); /* พื้นหลังดำจางๆ เข้มขึ้น */
+  z-index: -1;
 }
 
-.modal {
+.modal-container {
   position: relative;
-  z-index: 1;
-  width: 80%;
-  max-width: 15vw;
-  padding: 1rem;
-  background: url("../assets/img/bgPanel.png");
-  background-size: 100% 100%;
-  border-radius: 0.5rem;
+  width: 400px; /* ความกว้างคงที่ที่เหมาะสม */
+  max-width: 90%;
+  background: rgba(20, 20, 20, 0.664); /* พื้นหลังสีดำด้าน Flat */
+  border: 1px solid rgba(255, 255, 255, 0.1); /* เส้นขอบบางๆ */
+  border-radius: 6px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5); /* เงาให้ดูลอยขึ้นมา */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Pridi', serif; /* ใช้ฟอนต์เดียวกับ Dashboard */
+  animation: fadeIn 0.2s ease-out;
 }
 
 .modal-header {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 1rem;
-  font-family: "crock";
-  font-size: 1.5em;
-  background: url("../assets/img/menu_header.png");
-  background-position: center;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
   padding: 15px 20px;
+  background: rgba(255, 255, 255, 0.03); /* สีพื้นหลังหัวข้อจางๆ */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
 }
 
-.modal-header h2 {
+.modal-title {
   margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.modal-close {
-  border: none;
-  background-color: transparent;
-  font-size: 2rem;
+.modal-content {
+  padding: 30px 25px;
+  color: #e0e0e0;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.6;
 }
 
-.modal-body {
-  margin: 1rem 0;
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 </style>

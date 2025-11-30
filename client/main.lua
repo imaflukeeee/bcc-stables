@@ -2442,18 +2442,17 @@ function OpenDashboard(site)
     })
 end
 
--- [NEW] Centralized Action Handler for Dashboard
 RegisterNUICallback('horseAction', function(data, cb)
     cb('ok')
     local action = data.action
-    local horseId = data.horseId
+    local horseId = tonumber(data.horseId) -- [แนะนำ] แปลงเป็นตัวเลขเสมอ เพื่อให้เช็คเงื่อนไขได้ถูกต้อง
 
     -- 1. CALL HORSE
     if action == 'call' then
         local horseData = Core.Callback.TriggerAwait('bcc-stables:GetMyHorses')
         local targetHorse = nil
         for _, h in ipairs(horseData) do
-            if h.id == horseId then targetHorse = h break end
+            if tonumber(h.id) == horseId then targetHorse = h break end
         end
 
         if targetHorse then
@@ -2478,7 +2477,7 @@ RegisterNUICallback('horseAction', function(data, cb)
         local success = Core.Callback.TriggerAwait('bcc-stables:HealHorseCash', horseId)
         if success then
             Core.NotifyRightTip("Horse Healed!", 4000)
-            if MyHorse ~= 0 and MyHorseId == horseId then
+            if MyHorse ~= 0 and tonumber(MyHorseId) == horseId then
                 SetEntityHealth(MyHorse, GetEntityMaxHealth(MyHorse))
                 Citizen.InvokeNative(0xC6258F41D86676E0, MyHorse, 0, 100)
             end
@@ -2491,21 +2490,25 @@ RegisterNUICallback('horseAction', function(data, cb)
         TriggerServerEvent('bcc-stables:SetFavoriteHorse', horseId)
         Core.NotifyRightTip("Set as Main Horse", 4000)
 
-    -- 6. RELEASE
+    -- 6. RELEASE (ส่วนที่คุณแก้ไขมา ถูกต้องแล้วครับ)
     elseif action == 'release' then
-        if MyHorse ~= 0 and MyHorseId == horseId then
+        -- เพิ่ม tonumber ครอบ MyHorseId เพื่อความชัวร์ในการเช็ค
+        if MyHorse ~= 0 and tonumber(MyHorseId) == horseId then
             DeleteEntity(MyHorse)
             MyHorse = 0
+            MyHorseId = nil -- [แนะนำ] เคลียร์ค่า ID ทิ้งด้วย
         end
+        
         local success = Core.Callback.TriggerAwait('bcc-stables:ReleaseHorse', { horseId = horseId })
         if success then
             Core.NotifyRightTip("Horse Released", 4000)
+            -- ไม่ต้องใส่ StableMenu() ตรงนี้ ถูกต้องแล้วครับ
         end
 
     -- 7. UNEQUIP ALL
     elseif action == 'unequipAll' then
         TriggerServerEvent('bcc-stables:UnequipComponents', horseId)
-        if MyHorse ~= 0 and MyHorseId == horseId then
+        if MyHorse ~= 0 and tonumber(MyHorseId) == horseId then
              local categories = {
                 0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 
                 0xAA0217AB, 0x5447332, 0xEFB31921, 0xD3500E5D, 
@@ -2517,9 +2520,10 @@ RegisterNUICallback('horseAction', function(data, cb)
         end
         Core.NotifyRightTip("Unequipped All Items", 4000)
 
-    -- 8. UNEQUIP ONE (Specific Item)
+    -- 8. UNEQUIP ONE
     elseif action == 'unequipOne' and data.componentHash then
-        local targetHorseId = tonumber(horseId)
+        -- (ส่วนนี้คุณมี tonumber(horseId) อยู่แล้วในโค้ดเดิม แต่ถ้าแก้บรรทัดบนสุดแล้ว ตัวแปร horseId จะเป็นตัวเลขให้อัตโนมัติ)
+        local targetHorseId = horseId 
         local componentToRemove = tonumber(data.componentHash)
 
         local myHorses = Core.Callback.TriggerAwait('bcc-stables:GetMyHorses')
@@ -2568,9 +2572,9 @@ RegisterNUICallback('horseAction', function(data, cb)
             end
         end
 
-    -- 9. EQUIP OWNED (ใส่ของที่มีอยู่แล้ว - Logic ใหม่)
+    -- 9. EQUIP OWNED
     elseif action == 'equipOwned' and data.componentHash then
-        local targetHorseId = tonumber(horseId)
+        local targetHorseId = horseId
         local componentToEquip = tonumber(data.componentHash)
         
         local myHorses = Core.Callback.TriggerAwait('bcc-stables:GetMyHorses')
@@ -2580,7 +2584,6 @@ RegisterNUICallback('horseAction', function(data, cb)
         end
 
         if targetHorse then
-            -- ฟังก์ชันช่วยเช็คหมวดหมู่ (เพื่อไม่ให้ใส่ของซ้ำหมวดเดียวกัน)
             local function isSameCategory(hash1, hash2)
                 if not HorseComp then return false end
                 for _, items in pairs(HorseComp) do
@@ -2597,20 +2600,16 @@ RegisterNUICallback('horseAction', function(data, cb)
             local currentComps = json.decode(targetHorse.components) or {}
             local newComps = {}
             
-            -- กรองของเก่าออก (ถ้าอยู่ในหมวดเดียวกับของใหม่)
             for _, h in ipairs(currentComps) do
                 if not isSameCategory(tonumber(h), componentToEquip) then
                     table.insert(newComps, tonumber(h))
                 end
             end
-            -- ใส่ของใหม่เข้าไป
             table.insert(newComps, componentToEquip)
 
-            -- บันทึก
             local encoded = json.encode(newComps)
             Core.Callback.TriggerAwait('bcc-stables:UpdateComponents', encoded, targetHorseId)
 
-            -- อัปเดตม้าจริง
             if MyHorse ~= 0 and tonumber(MyHorseId) == targetHorseId then
                 local categoriesToRemove = {
                     0xBAA7E618, 0x17CEB41A, 0xDA6DADCA, 0x80451C25, 0xAA0217AB, 0x5447332, 
@@ -2630,9 +2629,9 @@ RegisterNUICallback('horseAction', function(data, cb)
             Core.NotifyRightTip("Equipped Item", 4000)
         end
 
-    -- 10. SAVE OWNED (บันทึกความเป็นเจ้าของ - Logic ใหม่)
+    -- 10. SAVE OWNED
     elseif action == 'saveOwned' and data.componentHash then
-        local targetHorseId = tonumber(horseId)
+        local targetHorseId = horseId
         local newItemHash = tonumber(data.componentHash)
         
         local myHorses = Core.Callback.TriggerAwait('bcc-stables:GetMyHorses')
