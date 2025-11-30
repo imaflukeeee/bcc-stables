@@ -367,6 +367,33 @@ Core.Callback.Register('bcc-stables:GetHorseData', function(source, cb)
         return cb(false)
     end
 
+    -- [ส่วนที่เพิ่ม/แก้ไข] หา Breed ของม้าเพื่อดึง Stats
+    local breedName = "Unknown"
+    -- เราต้องวนหา Breed จาก Config Horses โดยใช้ Model
+    for _, horseCfg in pairs(Horses) do
+        if horseCfg.colors[selectedHorse.model] then
+            breedName = horseCfg.breed
+            break
+        end
+    end
+
+    -- เตรียม Default Stats
+    local statsData = {
+        health = 0, stamina = 0, courage = 0, agility = 0, speed = 0, acceleration = 0
+    }
+
+    -- ดึงค่าจาก Config ถ้ามี
+    if Config.HorseStats and Config.HorseStats[breedName] then
+        local cfg = Config.HorseStats[breedName]
+        statsData.health = cfg.health or 0
+        statsData.stamina = cfg.stamina or 0
+        statsData.courage = cfg.courage or 0
+        statsData.agility = cfg.agility or 0
+        statsData.speed = cfg.speed or 0
+        statsData.acceleration = cfg.acceleration or 0
+    end
+    -- [จบส่วนที่เพิ่ม]
+
     cb({
         model = selectedHorse.model,
         name = selectedHorse.name,
@@ -378,7 +405,11 @@ Core.Callback.Register('bcc-stables:GetHorseData', function(source, cb)
         health = selectedHorse.health,
         stamina = selectedHorse.stamina,
         writhe = selectedHorse.writhe,
-        dead = selectedHorse.dead
+        dead = selectedHorse.dead,
+        
+        -- ส่งเพิ่มไป
+        breed = breedName,
+        stats = statsData
     })
 end)
 
@@ -386,7 +417,6 @@ Core.Callback.Register('bcc-stables:GetMyHorses', function(source, cb)
     local src = source
     local user = Core.getUser(src)
 
-    -- Check if the user exists
     if not user then
         DebugPrint('User not found for source: ' .. tostring(src))
         return cb(false)
@@ -397,6 +427,39 @@ Core.Callback.Register('bcc-stables:GetMyHorses', function(source, cb)
     local charid = character.charIdentifier
 
     local horses = MySQL.query.await('SELECT * FROM `player_horses` WHERE `charid` = ? AND `identifier` = ?', { charid, identifier })
+
+    -- [ส่วนที่เพิ่ม] วนลูปเพื่อเติมข้อมูล Stats ให้ม้าแต่ละตัว
+    for i, horse in ipairs(horses) do
+        local breedName = "Unknown"
+        
+        -- หา Breed
+        for _, horseCfg in pairs(Horses) do
+            if horseCfg.colors[horse.model] then
+                breedName = horseCfg.breed
+                break
+            end
+        end
+
+        -- กำหนด Stats
+        local statsData = {
+            health = 0, stamina = 0, courage = 0, agility = 0, speed = 0, acceleration = 0
+        }
+
+        if Config.HorseStats and Config.HorseStats[breedName] then
+            local cfg = Config.HorseStats[breedName]
+            statsData.health = cfg.health or 0
+            statsData.stamina = cfg.stamina or 0
+            statsData.courage = cfg.courage or 0
+            statsData.agility = cfg.agility or 0
+            statsData.speed = cfg.speed or 0
+            statsData.acceleration = cfg.acceleration or 0
+        end
+
+        -- ยัดกลับเข้าไปใน table horse
+        horses[i].breed = breedName
+        horses[i].stats = statsData
+    end
+    -- [จบส่วนที่เพิ่ม]
 
     cb(horses)
 end)

@@ -1,5 +1,4 @@
 local Core = exports.vorp_core:GetCore()
--- FeatherMenu =  exports['feather-menu'].initiate()
 
 -- Prompts
 local OpenShops, OpenCall, OpenReturn

@@ -93,6 +93,10 @@
                     </div>
                 </div>
 
+                <div class="manage-stats-wrapper">
+                    <HorseStats :stats="selectedHorse.stats || {}" />
+                </div>
+
                 <div class="bottom-showroom-list action-menu-list">
                     <div class="showroom-card" @click="performAction('call')" :class="{ disabled: selectedHorse.dead == 1 }">
                         <div class="card-center-icon"><img src="@/assets/img/icon-manage/whistle-icon.png" class="white-icon-medium" /></div>
@@ -710,4 +714,12 @@ export default {
 .btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: #aaa; }
 .btn-text { background: transparent; color: #444; font-size: 11px; margin-top: 5px; }
 .btn-text:hover { color: #888; }
+.manage-stats-wrapper {
+  position: absolute;
+  top: 40%;           /* อยู่กึ่งกลางในแนวตั้ง */
+  left: 80px;         /* เว้นระยะจากขอบซ้าย 60px (ให้ตรงกับแนวปุ่มเมนูอื่นๆ) */
+  transform: translateY(-50%); /* ขยับขึ้น 50% ของความสูงตัวเองเพื่อให้กลางเป๊ะ */
+  width: 320px;       /* ปรับขนาดความกว้างตามต้องการ */
+  z-index: 20;
+}
 </style>
