@@ -99,6 +99,7 @@
                 <div class="manage-info-right">
                     <HorseStorage 
                     :limit="selectedHorse.invLimit || 0" 
+                    @open-cargo="openHorseCargo"
                     />
                 </div>
 
@@ -489,6 +490,14 @@ export default {
       this.viewMode = 'home';
       this.$store.dispatch('selectHorse', null);
       api.post("loadHorse", { horseModel: 'CLEAR' });
+    },
+    openHorseCargo() {
+        if (!this.selectedHorse || !this.selectedHorse.id) return;
+        // เรียก Event ไปยัง backend (Lua) เพื่อเปิด UI กระเป๋า
+        api.post("OpenHorseCargo", { horseId: this.selectedHorse.id });
+        
+        // ปิดเมนู Stable ทันทีหลังจากเปิดกระเป๋า
+        this.closeMenu(); 
     },
     selectHorse(horse) {
       this.$store.dispatch('selectHorse', horse);

@@ -16,6 +16,10 @@
            </div>
         </div>
 
+        <button class="action-button-small" @click="openCargo">
+          OPEN CARGO
+        </button>
+
       </div>
     </div>
   </div>
@@ -33,6 +37,11 @@ export default {
       type: [Number, String],
       default: 0
     }
+  },
+  methods: { // เพิ่ม method สำหรับปล่อย Event
+      openCargo() {
+          this.$emit('open-cargo');
+      }
   }
 };
 </script>
@@ -87,6 +96,8 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* จัดให้เนื้อหาใน stat-item อยู่ตรงกลาง */
+  align-items: center;
 }
 
 .stat-top-row {
@@ -118,5 +129,27 @@ export default {
 
 .val-unit {
   font-size: 18px; /* หน่วยเล็กกว่านิดหน่อย */
+}
+
+/* --- NEW STYLES FOR OPEN CARGO BUTTON --- */
+.action-button-small {
+    padding: 8px 25px;
+    background: #d4af37; /* สีทอง/เหลือง */
+    color: #111;
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    margin-top: 10px; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.action-button-small:hover {
+    background: #f1c40f;
+    transform: translateY(-1px);
 }
 </style>

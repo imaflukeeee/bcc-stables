@@ -2735,6 +2735,22 @@ function UpdateHorseComponents(horse, newCompsTable)
     end
 end
 
+-- [NEW] NUI Callback for opening horse cargo from the stable menu
+RegisterNUICallback('OpenHorseCargo', function(data, cb)
+    cb('ok')
+    local horseId = data.horseId
+    
+    -- เรียก Event ไปยัง Server เพื่อเปิดช่องเก็บของ
+    -- ข้ามการเช็คกระเป๋า (hasSaddlebags) และ Animation เนื่องจากทำจากเมนู Stable
+    TriggerServerEvent('bcc-stables:OpenInventory', horseId)
+    
+    -- หาก MyHorse ปัจจุบัน (ม้าที่เสกในโลก) เป็นม้าตัวที่กำลังเปิดกระเป๋า
+    if MyHorse ~= 0 and MyHorseId == horseId then
+        -- ให้ม้าหยุดงานต่าง ๆ (ถ้ามี)
+        ClearPedTasksImmediately(MyHorse)
+    end
+end)
+
 -- 1. เพิ่ม Callback สำหรับรักษา (Heal)
 RegisterNUICallback('bcc-stables:HealHorseCash', function(data, cb)
     -- เรียก Server Callback ที่เราเคยสร้างไว้
