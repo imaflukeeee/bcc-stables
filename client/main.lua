@@ -2630,6 +2630,7 @@ RegisterNUICallback('horseAction', function(data, cb)
             Core.NotifyRightTip("Equipped Item", 4000)
         end
 
+    
     -- 10. SAVE OWNED (บันทึกความเป็นเจ้าของ - Logic ใหม่)
     elseif action == 'saveOwned' and data.componentHash then
         local targetHorseId = tonumber(horseId)
