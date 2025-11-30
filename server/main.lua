@@ -428,19 +428,22 @@ Core.Callback.Register('bcc-stables:GetMyHorses', function(source, cb)
 
     local horses = MySQL.query.await('SELECT * FROM `player_horses` WHERE `charid` = ? AND `identifier` = ?', { charid, identifier })
 
-    -- [ส่วนที่เพิ่ม] วนลูปเพื่อเติมข้อมูล Stats ให้ม้าแต่ละตัว
     for i, horse in ipairs(horses) do
         local breedName = "Unknown"
+        local invLimit = 0 -- [เพิ่ม] ตัวแปรเก็บค่าความจุ
         
-        -- หา Breed
+        -- หา Breed และ invLimit
         for _, horseCfg in pairs(Horses) do
             if horseCfg.colors[horse.model] then
                 breedName = horseCfg.breed
+                -- [เพิ่ม] ดึงค่า invLimit จาก Config
+                if horseCfg.colors[horse.model].invLimit then
+                    invLimit = horseCfg.colors[horse.model].invLimit
+                end
                 break
             end
         end
 
-        -- กำหนด Stats
         local statsData = {
             health = 0, stamina = 0, courage = 0, agility = 0, speed = 0, acceleration = 0
         }
@@ -455,11 +458,10 @@ Core.Callback.Register('bcc-stables:GetMyHorses', function(source, cb)
             statsData.acceleration = cfg.acceleration or 0
         end
 
-        -- ยัดกลับเข้าไปใน table horse
         horses[i].breed = breedName
         horses[i].stats = statsData
+        horses[i].invLimit = invLimit -- [เพิ่ม] ส่งค่าความจุไปด้วย
     end
-    -- [จบส่วนที่เพิ่ม]
 
     cb(horses)
 end)

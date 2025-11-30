@@ -20,6 +20,7 @@ client_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'config/comps.lua', -- [เพิ่มบรรทัดนี้] เพื่อให้ Server อ่าน Config อุปกรณ์ได้
     'server/main.lua'
 }
 

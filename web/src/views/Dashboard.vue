@@ -96,6 +96,11 @@
                 <div class="manage-stats-wrapper">
                     <HorseStats :stats="selectedHorse.stats || {}" />
                 </div>
+                <div class="manage-info-right">
+                    <HorseStorage 
+                    :limit="selectedHorse.invLimit || 0" 
+                    />
+                </div>
 
                 <div class="bottom-showroom-list action-menu-list">
                     <div class="showroom-card" @click="performAction('call')" :class="{ disabled: selectedHorse.dead == 1 }">
@@ -331,11 +336,12 @@
 <script>
 import { mapState, mapGetters } from 'vuex';
 import HorseStats from '@/components/HorseStats.vue'; 
+import HorseStorage from '@/components/HorseStorage.vue'; // <-- เพิ่มบรรทัดนี้
 import api from '@/api';
 
 export default {
   name: "StableDashboard",
-  components: { HorseStats },
+  components: { HorseStats, HorseStorage },
   data() {
       return {
           viewMode: 'home',
@@ -720,6 +726,14 @@ export default {
   left: 80px;         /* เว้นระยะจากขอบซ้าย 60px (ให้ตรงกับแนวปุ่มเมนูอื่นๆ) */
   transform: translateY(-50%); /* ขยับขึ้น 50% ของความสูงตัวเองเพื่อให้กลางเป๊ะ */
   width: 320px;       /* ปรับขนาดความกว้างตามต้องการ */
+  z-index: 20;
+}
+.manage-info-right {
+  position: absolute;
+  top: 40%;      /* ระดับความสูงเดียวกับฝั่งซ้าย (ปรับเลขนี้ตามที่แก้ในฝั่งซ้าย) */
+  right: 80px;   /* ชิดขวา 60px */
+  transform: translateY(-50%);
+  width: 320px;
   z-index: 20;
 }
 </style>
