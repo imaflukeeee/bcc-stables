@@ -190,8 +190,8 @@ Core.Callback.Register('bcc-stables:SaveNewHorse', function(source, cb, data)
 
             -- ถ้าซื้อสำเร็จ ให้บันทึกลงฐานข้อมูล
             if canBuy then
-                MySQL.query.await('INSERT INTO `player_horses` (identifier, charid, name, model, gender, captured) VALUES (?, ?, ?, ?, ?, ?)',
-                { identifier, charid, name, model, gender, captured })
+                MySQL.query.await('INSERT INTO `player_horses` (identifier, charid, name, model, gender, captured, components) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                { identifier, charid, name, model, gender, captured, '[]' })
 
                 LogToDiscord(charid, _U('discordHorsePurchased'))
                 return cb(true)
@@ -230,8 +230,8 @@ Core.Callback.Register('bcc-stables:SaveTamedHorse', function(source, cb, data)
         character.removeCurrency(0, regCost)
     end
 
-    MySQL.query.await('INSERT INTO `player_horses` (identifier, charid, name, model, gender, captured) VALUES (?, ?, ?, ?, ?, ?)',
-    { identifier, charid, name, model, gender, captured })
+    MySQL.query.await('INSERT INTO `player_horses` (identifier, charid, name, model, gender, captured, components) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    { identifier, charid, name, model, gender, captured, '[]' })
 
     LogToDiscord(charid, _U('discordTamedPurchased'))
     cb(true)
