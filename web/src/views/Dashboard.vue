@@ -390,12 +390,28 @@ export default {
           if (newVal === 'list' && this.currentList.length > 0) {
               this.onHorseHover(this.currentList[0]);
           }
+          // [เพิ่ม] เมื่อเข้าหน้าเลือกของ (ทั้งซื้อและจัดการ) ให้ Preview ตัวแรกทันที
+          if (newVal === 'decorate_item' || newVal === 'equipment_item') {
+              this.$nextTick(() => this.previewCurrentItem());
+          }
       },
+      // [แก้ไข] เมื่อเลื่อนดูของ (ทั้งซื้อและจัดการ) ให้ Preview ตาม
       focusedIndex() {
-          if (this.subMode === 'decorate_item') this.previewDecoration();
+          if (this.subMode === 'decorate_item' || this.subMode === 'equipment_item') {
+              this.previewCurrentItem();
+          }
       }
   },
   methods: {
+    // [เพิ่ม] ฟังก์ชัน Preview (ใช้ร่วมกันทั้งซื้อและจัดการ)
+    previewCurrentItem() {
+        const item = this.currentFocusedItem;
+        if (item && item.hash) {
+            // ส่ง Hash ไปให้ตัวเกมลองใส่ (Client Side Preview)
+            api.post(this.selectedDecorCategory, { hash: item.hash, price: 0, id: 0 });
+        }
+    },
+
     handleKeydown(e) {
         const carouselModes = ['list', 'equipment_cat', 'decorate_cat', 'equipment_item', 'decorate_item'];
         if (this.currentTab === 'owned' && carouselModes.includes(this.subMode)) {
@@ -505,15 +521,9 @@ export default {
         this.goHome();
     },
     
-    previewDecoration() {
-        const item = this.currentFocusedItem;
-        if (item && item.hash) { 
-            const price = this.getItemPrice(item);
-            api.post(this.selectedDecorCategory, { hash: item.hash, price: price, id: 0 }); 
-        }
-    },
+    // (previewDecoration เดิม ลบออกได้ เพราะใช้ previewCurrentItem แทนแล้ว)
+    previewDecoration() { this.previewCurrentItem(); },
     
-    // [แก้ไข] ฟังก์ชันซื้อ (ส่งค่าตัวเลขที่ถูกต้อง)
     buyDecoration(currency) {
         const item = this.currentFocusedItem;
         if (!item || !item.hash) return;
@@ -530,8 +540,12 @@ export default {
             currencyType = 0;
         }
         
-        // ส่งคำสั่ง CloseStable เพียงครั้งเดียวเพื่อตัดเงินและบันทึก
-        // ตัดบรรทัด horseAction: saveOwned ออกแล้ว
+        api.post("horseAction", { 
+            action: 'saveOwned', 
+            horseId: this.selectedHorse.id, 
+            componentHash: item.hash 
+        });
+
         api.post("CloseStable", { 
             MenuAction: "save", 
             cashPrice: cashCost, 
