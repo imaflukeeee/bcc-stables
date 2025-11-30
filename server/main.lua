@@ -121,32 +121,40 @@ Core.Callback.Register('bcc-stables:BuyTack', function(source, cb, data)
     if not user then return cb(false) end
 
     local character = user.getUsedCharacter
-    local cashPrice = tonumber(data.cashPrice)
-    local goldPrice = tonumber(data.goldPrice)
+    local cashPrice = tonumber(data.cashPrice) or 0
+    local goldPrice = tonumber(data.goldPrice) or 0
+    local currencyType = tonumber(data.currencyType)
 
-    if cashPrice > 0 and goldPrice > 0 then
-        if tonumber(data.currencyType) == 0 then
-            if character.money >= cashPrice then
-                character.removeCurrency(0, cashPrice)
-            else
-                Core.NotifyRightTip(src, _U('shortCash'), 4000)
-                return cb(false)
-            end
-        else
-            if character.gold >= goldPrice then
-                character.removeCurrency(1, goldPrice)
-            else
-                Core.NotifyRightTip(src, _U('shortGold'), 4000)
-                return cb(false)
-            end
-        end
+    -- กรณีซื้อของฟรี (ราคา 0 ทั้งคู่)
+    if cashPrice == 0 and goldPrice == 0 then
         Core.NotifyRightTip(src, _U('purchaseSuccessful'), 4000)
         return cb(true)
     end
 
+    -- เช็คตามประเภทเงินที่ส่งมา
+    if currencyType == 0 then -- 0 = ใช้เงินสด (Cash)
+        if character.money >= cashPrice then
+            character.removeCurrency(0, cashPrice)
+            Core.NotifyRightTip(src, _U('purchaseSuccessful'), 4000)
+            return cb(true)
+        else
+            Core.NotifyRightTip(src, _U('shortCash'), 4000)
+            return cb(false)
+        end
+
+    elseif currencyType == 1 then -- 1 = ใช้ทอง (Gold)
+        if character.gold >= goldPrice then
+            character.removeCurrency(1, goldPrice)
+            Core.NotifyRightTip(src, _U('purchaseSuccessful'), 4000)
+            return cb(true)
+        else
+            Core.NotifyRightTip(src, _U('shortGold'), 4000)
+            return cb(false)
+        end
+    end
+
     cb(false)
 end)
-
 Core.Callback.Register('bcc-stables:SaveNewHorse', function(source, cb, data)
     local src = source
     local user = Core.getUser(src)

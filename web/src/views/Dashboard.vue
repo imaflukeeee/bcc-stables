@@ -35,8 +35,11 @@
 
     <div v-else class="content-view">
       
-      <button v-if="currentTab === 'owned'" class="floating-back-btn" @click="handleBack">
+      <button v-if="currentTab === 'owned' && subMode !== 'list'" class="floating-back-btn" @click="handleBack">
         <i class="fas fa-chevron-left"></i> {{ getBackLabel() }}
+      </button>
+      <button v-if="currentTab === 'owned' && subMode === 'list'" class="floating-back-btn" @click="goHome">
+        <i class="fas fa-chevron-left"></i> HOME
       </button>
 
       <template v-if="currentTab === 'owned'">
@@ -55,6 +58,7 @@
         </div>
 
         <template v-else>
+            
             <div v-if="subMode === 'list' && hoveredHorse" class="hover-preview-container">
                 <div class="manage-stats-wrapper">
                     <HorseStats :stats="hoveredHorse.stats || {}" />
@@ -64,32 +68,42 @@
                 </div>
             </div>
 
-            <div v-if="subMode === 'list'" class="bottom-showroom-list">
-              <div 
-                v-for="(horse, index) in currentList" 
-                :key="index"
-                class="showroom-card"
-                @click="selectHorse(horse)"
-                @mouseenter="onHorseHover(horse)"
-              >
-                <div class="card-corner-tl">
-                   <span class="horse-level" v-if="horse.xp">Lv.{{ getBondingLevel(horse.xp) }}</span>
+            <div v-if="subMode === 'list'" class="carousel-wrapper">
+                <button class="carousel-arrow left" @click="prevItem">❮</button>
+                <div class="carousel-track-container">
+                    <div class="carousel-track" :style="trackStyle">
+                        <div 
+                            v-for="(horse, index) in currentList" 
+                            :key="index"
+                            class="showroom-card-carousel"
+                            :class="{ 'active': index === focusedIndex }"
+                            @click="selectHorseByIndex(index)"
+                        >
+                            <div class="card-corner-tl">
+                               <span class="horse-level" v-if="horse.xp">Lv.{{ getBondingLevel(horse.xp) }}</span>
+                            </div>
+                            <div class="card-corner-tr">
+                               <img v-if="horse.selected == 1" src="@/assets/img/star-icon.png" class="star-icon" />
+                            </div>
+                            <div class="card-center-icon">
+                               <img src="@/assets/img/head-horse-icon.png" class="white-icon-medium" />
+                            </div>
+                            <div class="card-body">
+                               <h3 class="horse-name-show">{{ getHorseName(horse) }}</h3>
+                               <p class="horse-breed-show">{{ horse.breed || horse.model }}</p>
+                            </div>
+                            <div class="card-footer" v-if="horse.dead == 1 || horse.writhe == 1">
+                               <span v-if="horse.dead == 1" class="mini-badge dead">DEAD</span>
+                               <span v-if="horse.writhe == 1" class="mini-badge injured">HURT</span>
+                            </div>
+                            <div class="selection-border" v-if="index === focusedIndex"></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-corner-tr">
-                   <img v-if="horse.selected == 1" src="@/assets/img/star-icon.png" class="star-icon" />
+                <button class="carousel-arrow right" @click="nextItem">❯</button>
+                <div class="key-hint">
+                     <span>[◀ ▶] เลื่อน</span> • <span>[ENTER] จัดการม้า</span>
                 </div>
-                <div class="card-center-icon">
-                   <img src="@/assets/img/head-horse-icon.png" class="white-icon-medium" />
-                </div>
-                <div class="card-body">
-                   <h3 class="horse-name-show">{{ getHorseName(horse) }}</h3>
-                   <p class="horse-breed-show">{{ horse.breed || horse.model }}</p>
-                </div>
-                <div class="card-footer" v-if="horse.dead == 1 || horse.writhe == 1">
-                   <span v-if="horse.dead == 1" class="mini-badge dead">DEAD</span>
-                   <span v-if="horse.writhe == 1" class="mini-badge injured">HURT</span>
-                </div>
-              </div>
             </div>
 
             <div v-else-if="subMode === 'actions' && selectedHorse" class="manage-action-view">
@@ -141,65 +155,114 @@
                 </div>
             </div>
             
-            <div v-else-if="subMode === 'equipment_cat' && selectedHorse" class="manage-action-view">
+            <div v-else-if="(subMode === 'equipment_cat' || subMode === 'decorate_cat') && selectedHorse" class="manage-action-view">
                  <div class="selected-horse-header">
-                    <h1>จัดการอุปกรณ์ตกแต่งม้า</h1>
+                    <h1>{{ subMode === 'equipment_cat' ? 'จัดการอุปกรณ์' : 'ซื้ออุปกรณ์ตกแต่ง' }}</h1>
+                    <div class="sub-info">เลือกหมวดหมู่</div>
                 </div>
-                 <div class="carousel-container-wide">
-                    <button class="nav-arrow left" @click="scrollLeftCat">❮</button>
-                    <div class="decor-grid-6">
-                        <div v-for="(category, index) in visibleOwnedCats" :key="index" class="showroom-card" @click="openEquipmentItems(category)">
-                            <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" /></div>
-                            <div class="card-body"><h3 class="horse-name-show">{{ formatCategoryName(category) }}</h3><p class="horse-breed-show">{{ getOwnedCountInCategory(category) }} Items</p></div>
+                
+                <div class="carousel-wrapper" style="bottom: 120px;">
+                    <button class="carousel-arrow left" @click="prevItem">❮</button>
+                    <div class="carousel-track-container">
+                        <div class="carousel-track" :style="trackStyle">
+                            <div 
+                                v-for="(category, index) in activeCarouselList" 
+                                :key="index" 
+                                class="showroom-card-carousel"
+                                :class="{ 'active': index === focusedIndex }"
+                                @click="selectItem(index)"
+                            >
+                                <div class="card-center-icon">
+                                    <img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" />
+                                </div>
+                                <div class="card-body">
+                                   <h3 class="horse-name-show">{{ formatCategoryName(category) }}</h3>
+                                   <p class="horse-breed-show">
+                                       {{ subMode === 'equipment_cat' ? getOwnedCountInCategory(category) : (compData[category] ? Object.keys(compData[category]).length : 0) }} Items
+                                   </p>
+                                </div>
+                                <div class="selection-border" v-if="index === focusedIndex"></div>
+                            </div>
                         </div>
                     </div>
-                    <button class="nav-arrow right" @click="scrollRightCat">❯</button>
+                    <button class="carousel-arrow right" @click="nextItem">❯</button>
+                    <div class="key-hint"><span>[ENTER] เลือกหมวดหมู่</span></div>
                 </div>
             </div>
 
-            <div v-else-if="subMode === 'equipment_item' && selectedHorse" class="manage-action-view">
-                 <div class="selected-horse-header"><h1>{{ formatCategoryName(selectedDecorCategory) }}</h1></div>
-                 <div class="carousel-container">
-                    <div class="decor-selector-center">
-                        <div class="status-badge" :class="isEquipped(currentDecorItem.hash) ? 'equipped' : 'stored'">{{ isEquipped(currentDecorItem.hash) ? 'EQUIPPED' : 'IN INVENTORY' }}</div>
-                        <h2 class="decor-item-name">Item {{ currentDecorIndex + 1 }}</h2>
-                        <div class="decor-nav-row">
-                            <button class="nav-arrow" @click="prevItem">❮</button>
-                            <span class="decor-counter">{{ currentDecorIndex + 1 }} / {{ currentCategoryItems.length }}</span>
-                            <button class="nav-arrow" @click="nextItem">❯</button>
-                        </div>
-                        <button v-if="isEquipped(currentDecorItem.hash)" class="buy-btn-small btn-danger" @click="toggleEquip(currentDecorItem.hash, false)">UNEQUIP</button>
-                        <button v-else class="buy-btn-small" @click="toggleEquip(currentDecorItem.hash, true)">EQUIP</button>
-                    </div>
-                </div>
-            </div>
+            <div v-else-if="(subMode === 'equipment_item' || subMode === 'decorate_item') && selectedHorse" class="manage-action-view">
+                 <div class="selected-horse-header">
+                     <h1>{{ formatCategoryName(selectedDecorCategory) }}</h1>
+                     <div class="sub-info">รายการที่ {{ focusedIndex + 1 }} / {{ activeCarouselList.length }}</div>
+                 </div>
 
-            <div v-else-if="subMode === 'decorate_cat' && selectedHorse" class="manage-action-view">
-                 <div class="selected-horse-header"><h1>อุปกรณ์ตกแต่งม้า</h1></div>
-                 <div class="carousel-container-wide">
-                    <button class="nav-arrow left" @click="scrollLeftCat">❮</button>
-                    <div class="decor-grid-6">
-                        <div v-for="(category, index) in visibleDecorCats" :key="index" class="showroom-card" @click="openDecorateItems(category)">
-                            <div class="card-center-icon"><img src="@/assets/img/icon-manage/equipment-icon.png" class="white-icon-medium" /></div>
-                            <div class="card-body"><h3 class="horse-name-show">{{ formatCategoryName(category) }}</h3><p class="horse-breed-show">{{ compData[category] ? Object.keys(compData[category]).length : 0 }} Items</p></div>
+                 <div class="carousel-wrapper" style="bottom: 120px;">
+                    <button class="carousel-arrow left" @click="prevItem">❮</button>
+                    <div class="carousel-track-container">
+                        <div class="carousel-track" :style="trackStyle">
+                            <div 
+                                v-for="(item, index) in activeCarouselList" 
+                                :key="index"
+                                class="showroom-card-carousel"
+                                :class="{ 'active': index === focusedIndex }"
+                                @click="selectItem(index)"
+                            >
+                                <div class="card-corner-tr" v-if="isEquipped(item.hash)">
+                                   <span class="mini-badge equipped">ON</span>
+                                </div>
+                                <div class="card-center-icon">
+                                    <img src="@/assets/img/icon-manage/equipment-manage-icon.png" class="white-icon-medium" />
+                                </div>
+                                <div class="card-body">
+                                    <h3 class="horse-name-show">{{ item.label || 'Item ' + (index+1) }}</h3>
+                                    <p class="horse-breed-show" v-if="subMode === 'decorate_item'">
+                                        <span v-if="getItemPrice(item) > 0">${{ getItemPrice(item) }}</span>
+                                        <span v-if="getItemPrice(item) > 0 && item.goldPrice > 0"> | </span>
+                                        <span v-if="item.goldPrice > 0" style="color: gold;">{{ item.goldPrice }} Gold</span>
+                                        <span v-if="!getItemPrice(item) && !item.goldPrice">Free</span>
+                                    </p>
+                                </div>
+                                <div class="selection-border" v-if="index === focusedIndex"></div>
+                            </div>
                         </div>
                     </div>
-                    <button class="nav-arrow right" @click="scrollRightCat">❯</button>
+                    <button class="carousel-arrow right" @click="nextItem">❯</button>
                 </div>
-            </div>
 
-            <div v-else-if="subMode === 'decorate_item' && selectedHorse" class="manage-action-view">
-                 <div class="selected-horse-header"><h1>{{ formatCategoryName(selectedDecorCategory) }}</h1></div>
-                 <div class="carousel-container">
-                    <div class="decor-selector-center">
-                        <h2 class="decor-item-name" v-if="getItemPrice(currentDecorItem) > 0">${{ getItemPrice(currentDecorItem) }}</h2>
-                        <h2 class="decor-item-name" v-else>ฟรี</h2>
-                        <div class="decor-nav-row">
-                            <button class="nav-arrow" @click="prevItem">❮</button>
-                            <span class="decor-counter">รายการที่ {{ currentDecorIndex + 1 }} จาก {{ currentCategoryItems.length }}</span>
-                            <button class="nav-arrow" @click="nextItem">❯</button>
-                        </div>
-                        <button class="buy-btn-small" @click="buyDecoration">ซื้อ / สวมใส่</button>
+                <div class="shop-controls-center">
+                    <div v-if="subMode === 'equipment_item' && currentFocusedItem" class="buy-actions-row">
+                        <button v-if="isEquipped(currentFocusedItem.hash)" class="action-btn btn-danger" @click="toggleEquip(currentFocusedItem.hash, false)">
+                            ถอดอุปกรณ์ (UNEQUIP)
+                        </button>
+                        <button v-else class="action-btn btn-white" @click="toggleEquip(currentFocusedItem.hash, true)">
+                            สวมใส่ (EQUIP)
+                        </button>
+                    </div>
+
+                    <div v-if="subMode === 'decorate_item' && currentFocusedItem" class="buy-actions-row">
+                        
+                        <button v-if="getItemPrice(currentFocusedItem) > 0" 
+                                class="action-btn btn-white" 
+                                style="display: flex; align-items: center; justify-content: center; gap: 5px;"
+                                @click="buyDecoration('cash')">
+                            <span style="font-weight: 700; font-size: 16px;">$</span> 
+                            {{ getItemPrice(currentFocusedItem) }}
+                        </button>
+
+                        <button v-if="currentFocusedItem.goldPrice > 0" 
+                                class="action-btn btn-gold" 
+                                style="display: flex; align-items: center; justify-content: center; gap: 5px;"
+                                @click="buyDecoration('gold')">
+                            <img src="@/assets/img/gold.png" style="width: 20px; height: 20px;" /> 
+                            {{ currentFocusedItem.goldPrice }} Gold
+                        </button>
+
+                        <button v-if="getItemPrice(currentFocusedItem) == 0 && (!currentFocusedItem.goldPrice || currentFocusedItem.goldPrice == 0)"
+                                class="action-btn btn-white" 
+                                @click="buyDecoration('cash')">
+                            สวมใส่ (ฟรี)
+                        </button>
+
                     </div>
                 </div>
             </div>
@@ -208,10 +271,7 @@
       </template>
 
 
-      <ShopView 
-        v-if="currentTab === 'shop'" 
-        @close-menu="closeMenu" 
-      />
+      <ShopView v-if="currentTab === 'shop'" @close-menu="closeMenu" />
 
       <button class="close-btn" @click="closeMenu">✕</button>
     </div>
@@ -234,44 +294,51 @@ import api from '@/api';
 import HorseStats from '@/components/HorseStats.vue'; 
 import HorseStorage from '@/components/HorseStorage.vue';
 import ConfirmationModal from '@/components/ConfirmationModal.vue'; 
-
-// [IMPORT ใหม่]
 import ShopView from '@/components/ShopView.vue'; 
 
 export default {
   name: "StableDashboard",
-  components: { 
-    HorseStats, 
-    HorseStorage, 
-    ConfirmationModal,
-    ShopView // [REGISTER]
-  }, 
+  components: { HorseStats, HorseStorage, ConfirmationModal, ShopView }, 
   data() {
       return {
           viewMode: 'home',
           subMode: 'list',
-          
-          // ตัวแปร Shop เดิม ลบออกได้เลยเพราะย้ายไป ShopView แล้ว
-          // selectedColorModel: null,
-          // newHorseName: "",
-          
           reviveCost: 20,
           selectedDecorCategory: null,
           currentDecorIndex: 0,
           scrollOffsetCat: 0,
           showModal: false,
-          hoveredHorse: null 
+          hoveredHorse: null,
+          focusedIndex: 0
       }
   },
   computed: {
     ...mapState(['location', 'currentTab', 'selectedHorse', 'compData']),
     ...mapGetters(['currentList']),
     
-    // ... Computed ของ Owned Equipment คงเดิม ...
-    decorCategoryList() {
-        if (!this.compData) return [];
-        return Object.keys(this.compData).sort();
+    activeCarouselList() {
+        if (this.subMode === 'list') return this.currentList;
+        if (this.subMode === 'equipment_cat') return this.ownedCategories;
+        if (this.subMode === 'decorate_cat') return this.decorCategoryList;
+        if (this.subMode === 'equipment_item' || this.subMode === 'decorate_item') {
+            return this.currentCategoryItems;
+        }
+        return [];
     },
+
+    currentFocusedItem() {
+        if (!this.activeCarouselList || this.activeCarouselList.length === 0) return null;
+        return this.activeCarouselList[this.focusedIndex];
+    },
+
+    trackStyle() {
+        const cardWidth = 220; 
+        const centerOffset = 100; 
+        const shiftAmount = (this.focusedIndex * cardWidth) + centerOffset;
+        return { transform: `translateX(-${shiftAmount}px)` };
+    },
+
+    decorCategoryList() { if (!this.compData) return []; return Object.keys(this.compData).sort(); },
     ownedItemsList() {
         if (!this.selectedHorse) return [];
         let owned = [];
@@ -285,24 +352,13 @@ export default {
                 owned = [...owned, ...equipped];
             }
             owned = [...new Set(owned)];
-        } catch (e) { 
-            console.log("Error parsing components"); 
-        }
+        } catch (e) { console.log("Error parsing components"); }
         return owned.map(Number);
     },
     hasAnyOwnedItems() { return this.ownedItemsList.length > 0; },
     ownedCategories() {
         if (!this.compData) return [];
         return this.decorCategoryList.filter(cat => this.getOwnedCountInCategory(cat) > 0);
-    },
-    visibleOwnedCats() {
-        const list = this.ownedCategories;
-        if (!list.length) return [];
-        return list.slice(this.scrollOffsetCat, this.scrollOffsetCat + 6);
-    },
-    visibleDecorCats() {
-        const list = this.decorCategoryList;
-        return list.slice(this.scrollOffsetCat, this.scrollOffsetCat + 6);
     },
     currentCategoryItems() {
         if (!this.selectedDecorCategory || !this.compData) return [];
@@ -314,59 +370,114 @@ export default {
         }
         return items; 
     },
-    currentDecorItem() {
-        return this.currentCategoryItems[this.currentDecorIndex] || {};
-    }
+    currentDecorItem() { return this.currentCategoryItems[this.currentDecorIndex] || {}; }
   },
   
-  mounted() { window.addEventListener('keydown', this.handleKeydown); },
+  mounted() { 
+      window.addEventListener('keydown', this.handleKeydown); 
+      if(this.currentList.length > 0) this.onHorseHover(this.currentList[0]);
+  },
   beforeUnmount() { window.removeEventListener('keydown', this.handleKeydown); },
 
   watch: {
       selectedHorse(newVal) {
-          // เหลือแค่ Logic ของ Owned Horse
           if (this.currentTab === 'owned' && newVal) {
               this.previewMyHorse(newVal);
           }
       },
-      currentDecorIndex() { 
-          if (this.subMode === 'decorate_item') this.previewDecoration(); 
+      subMode(newVal) {
+          this.focusedIndex = 0;
+          if (newVal === 'list' && this.currentList.length > 0) {
+              this.onHorseHover(this.currentList[0]);
+          }
+      },
+      focusedIndex() {
+          if (this.subMode === 'decorate_item') this.previewDecoration();
       }
   },
   methods: {
-    getItemPrice(item) { return item.cashPrice || item.price || item.cash || 0; },
-    
     handleKeydown(e) {
-        if (this.subMode === 'decorate_item' || this.subMode === 'equipment_item') {
+        const carouselModes = ['list', 'equipment_cat', 'decorate_cat', 'equipment_item', 'decorate_item'];
+        if (this.currentTab === 'owned' && carouselModes.includes(this.subMode)) {
             if (e.key === 'ArrowLeft') this.prevItem();
-            if (e.key === 'ArrowRight') this.nextItem();
+            else if (e.key === 'ArrowRight') this.nextItem();
+            else if (e.key === 'Enter') this.selectItem(this.focusedIndex);
         }
-        if (this.subMode === 'decorate_cat' || this.subMode === 'equipment_cat') {
-            if (e.key === 'ArrowLeft') this.scrollLeftCat();
-            if (e.key === 'ArrowRight') this.scrollRightCat();
+    },
+
+    prevItem() {
+        if (this.focusedIndex > 0) {
+            this.focusedIndex--;
+            this.onListScroll();
+        }
+    },
+    nextItem() {
+        if (this.focusedIndex < this.activeCarouselList.length - 1) {
+            this.focusedIndex++;
+            this.onListScroll();
+        }
+    },
+    onListScroll() {
+        if (this.subMode === 'list') {
+            this.onHorseHover(this.currentList[this.focusedIndex]);
         }
     },
     
-    goToShop() { 
-        this.$store.dispatch('selectTab', 'shop'); 
-        // ไม่ต้อง set subMode = 'list' แล้ว เพราะ ShopView จัดการเอง
+    selectItem(index) {
+        this.focusedIndex = index;
+        const item = this.activeCarouselList[index];
+        if (!item) return;
+
+        if (this.subMode === 'list') {
+            this.selectHorse(item);
+        } else if (this.subMode === 'equipment_cat') {
+            this.openEquipmentItems(item);
+        } else if (this.subMode === 'decorate_cat') {
+            this.openDecorateItems(item);
+        }
+    },
+
+    selectHorseByIndex(index) {
+        this.focusedIndex = index;
+        this.selectItem(index);
+    },
+
+    openDecorateCategories() {
+        api.post("selectHorse", { horseId: this.selectedHorse.id });
+        this.subMode = 'decorate_cat'; 
+    },
+    manageEquipment() {
+        api.post("selectHorse", { horseId: this.selectedHorse.id });
+        this.subMode = 'equipment_cat'; 
+    },
+    openDecorateItems(category) {
+        this.selectedDecorCategory = category; 
+        this.subMode = 'decorate_item'; 
+    },
+    openEquipmentItems(category) {
+        this.selectedDecorCategory = category; 
+        this.subMode = 'equipment_item';
     },
     
+    getItemPrice(item) { return item.cashPrice || item.price || item.cash || 0; },
+    goToShop() { this.$store.dispatch('selectTab', 'shop'); },
     onHorseHover(horse) {
         this.hoveredHorse = horse;
         if (this.currentTab === 'owned') { this.previewMyHorse(horse); } 
-        // Logic Shop ย้ายไป ShopView แล้ว
     },
-    
     enterMode(mode) { 
         this.$store.dispatch('selectTab', mode); 
         this.viewMode = 'content'; 
         this.subMode = 'list'; 
         this.hoveredHorse = null; 
-        // เคลียร์ค่าม้าที่เลือกค้างไว้ เพื่อให้หน้า Shop เริ่มต้นที่รายการสินค้า
         this.$store.dispatch('selectHorse', null);
+        this.focusedIndex = 0; 
+        setTimeout(() => {
+            if(this.currentTab === 'owned' && this.currentList.length > 0) {
+                this.onHorseHover(this.currentList[0]);
+            }
+        }, 100);
     },
-    
     getBackLabel() {
         if (['decorate_item', 'equipment_item'].includes(this.subMode)) return 'CATEGORIES';
         if (['decorate_cat', 'equipment_cat'].includes(this.subMode)) return 'ACTIONS';
@@ -385,12 +496,61 @@ export default {
             if (this.subMode === 'actions') {
                 this.subMode = 'list';
                 this.$store.dispatch('selectHorse', null);
-                this.hoveredHorse = null; 
+                setTimeout(() => {
+                    if(this.currentList[this.focusedIndex]) this.onHorseHover(this.currentList[this.focusedIndex]);
+                }, 100);
                 return;
             }
         }
         this.goHome();
     },
+    
+    previewDecoration() {
+        const item = this.currentFocusedItem;
+        if (item && item.hash) { 
+            const price = this.getItemPrice(item);
+            api.post(this.selectedDecorCategory, { hash: item.hash, price: price, id: 0 }); 
+        }
+    },
+    
+    // [แก้ไข] ฟังก์ชันซื้อ (ส่งค่าตัวเลขที่ถูกต้อง)
+    buyDecoration(currency) {
+        const item = this.currentFocusedItem;
+        if (!item || !item.hash) return;
+        
+        let cashCost = 0;
+        let goldCost = 0;
+        let currencyType = 0;
+
+        if (currency === 'gold') {
+            goldCost = parseInt(item.goldPrice) || 0;
+            currencyType = 1;
+        } else {
+            cashCost = parseInt(this.getItemPrice(item)) || 0;
+            currencyType = 0;
+        }
+        
+        // ส่งคำสั่ง CloseStable เพียงครั้งเดียวเพื่อตัดเงินและบันทึก
+        // ตัดบรรทัด horseAction: saveOwned ออกแล้ว
+        api.post("CloseStable", { 
+            MenuAction: "save", 
+            cashPrice: cashCost, 
+            goldPrice: goldCost, 
+            currencyType: currencyType 
+        });
+        
+        setTimeout(() => this.closeMenu(), 500);
+    },
+
+    toggleEquip(hash, equip) {
+        if (equip) {
+            api.post("horseAction", { action: 'equipOwned', horseId: this.selectedHorse.id, componentHash: hash });
+        } else {
+            api.post("horseAction", { action: 'unequipOne', horseId: this.selectedHorse.id, componentHash: hash });
+        }
+        setTimeout(() => this.closeMenu(), 300);
+    },
+
     goHome() {
       this.viewMode = 'home';
       this.$store.dispatch('selectHorse', null);
@@ -407,60 +567,12 @@ export default {
     },
     getHorseName(horse) { return horse.name || horse.breed || "Unknown Horse"; },
     getBondingLevel(xp) { if (xp >= 2400) return 4; if (xp >= 1700) return 3; if (xp >= 900) return 2; return 1; },
-    
     closeMenu() {
       api.post("CloseStable", { MenuAction: "Close" });
       this.$store.dispatch('closeDashboard');
       setTimeout(() => { this.viewMode = 'home'; this.subMode = 'list'; }, 500);
     },
-    previewHorse(modelName) { api.post("loadHorse", { horseModel: modelName }); },
     previewMyHorse(horse) { api.post("loadMyHorse", { HorseModel: horse.model, HorseComp: horse.components, HorseId: horse.id, HorseGender: horse.gender }); },
-    
-    // ... Methods ของ Equipment/Decorate ...
-    openDecorateCategories() {
-        api.post("selectHorse", { horseId: this.selectedHorse.id });
-        this.subMode = 'decorate_cat'; this.scrollOffsetCat = 0;
-    },
-    manageEquipment() {
-        api.post("selectHorse", { horseId: this.selectedHorse.id });
-        this.subMode = 'equipment_cat'; this.scrollOffsetCat = 0;
-    },
-    scrollLeftCat() { if (this.scrollOffsetCat > 0) this.scrollOffsetCat--; },
-    scrollRightCat() { 
-        const list = (this.subMode === 'equipment_cat') ? this.ownedCategories : this.decorCategoryList;
-        if (this.scrollOffsetCat + 6 < list.length) this.scrollOffsetCat++;
-    },
-    openDecorateItems(category) {
-        this.selectedDecorCategory = category; this.currentDecorIndex = 0; this.subMode = 'decorate_item'; this.previewDecoration();
-    },
-    openEquipmentItems(category) {
-        this.selectedDecorCategory = category; this.currentDecorIndex = 0; this.subMode = 'equipment_item';
-    },
-    nextItem() {
-        if (this.currentDecorIndex < this.currentCategoryItems.length - 1) this.currentDecorIndex++;
-        else this.currentDecorIndex = 0;
-    },
-    prevItem() {
-        if (this.currentDecorIndex > 0) this.currentDecorIndex--;
-        else this.currentDecorIndex = this.currentCategoryItems.length - 1;
-    },
-    previewDecoration() {
-        const item = this.currentDecorItem;
-        const price = this.getItemPrice(item);
-        if (item && item.hash) { api.post(this.selectedDecorCategory, { hash: item.hash, price: price, id: 0 }); }
-    },
-    buyDecoration() {
-        const item = this.currentDecorItem;
-        if (!item || !item.hash) return;
-        const cashCost = item.cashPrice || item.price || 0;
-        const goldCost = item.goldPrice || 0;
-        
-        api.post(this.selectedDecorCategory, { hash: item.hash, price: cashCost, id: 0 });
-        api.post("CloseStable", { MenuAction: "save", cashPrice: cashCost, goldPrice: goldCost, currencyType: 0 });
-        api.post("horseAction", { action: 'saveOwned', horseId: this.selectedHorse.id, componentHash: item.hash });
-        
-        setTimeout(() => this.closeMenu(), 500);
-    },
     getOwnedCountInCategory(category) {
         const items = this.compData[category];
         if (!items) return 0;
@@ -474,16 +586,7 @@ export default {
             return equipped.includes(Number(hash));
         } catch(e) { return false; }
     },
-    toggleEquip(hash, equip) {
-        if (equip) {
-            api.post("horseAction", { action: 'equipOwned', horseId: this.selectedHorse.id, componentHash: hash });
-        } else {
-            api.post("horseAction", { action: 'unequipOne', horseId: this.selectedHorse.id, componentHash: hash });
-        }
-        setTimeout(() => this.closeMenu(), 300);
-    },
     formatCategoryName(name) { return name ? name.replace(/([A-Z])/g, ' $1').trim() : ''; },
-    
     performAction(action) {
         if (!this.selectedHorse) return;
         if (action === 'release') { this.showModal = true; return; }
@@ -492,7 +595,6 @@ export default {
         if (['call', 'return'].includes(action)) this.closeMenu();
         if (['heal', 'setMain'].includes(action)) setTimeout(() => this.closeMenu(), 300);
     },
-
     confirmRelease() {
         api.post("horseAction", { action: 'release', horseId: this.selectedHorse.id, horseModel: this.selectedHorse.model });
         this.showModal = false;
@@ -507,23 +609,72 @@ export default {
 * { font-family: 'Pridi', serif !important; }
 .dashboard-container { display: flex; width: 100vw; height: 100vh; position: relative; color: #f0f0f0; }
 
-/* Styles ของเดิม (คงไว้ทั้งหมด) */
+/* ============ Carousel Styles ============ */
+.carousel-wrapper {
+    position: absolute; bottom: 40px; left: 0; width: 100%;
+    display: flex; flex-direction: column; align-items: center;
+    z-index: 10;
+}
+
+.carousel-track-container {
+    width: 100%; height: 220px;
+    overflow: hidden; 
+    position: relative;
+    mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+}
+
+.carousel-track {
+    display: flex; gap: 20px;
+    position: absolute; left: 50%; top: 50%;
+    transform-origin: 0 0; margin-top: -80px; /* half of 160px height */
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.showroom-card-carousel {
+    width: 200px; height: 160px;
+    background: rgba(20, 20, 20, 0.8);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    gap: 10px; cursor: pointer; flex-shrink: 0; position: relative;
+    transition: all 0.3s ease; opacity: 0.5; transform: scale(0.9);
+}
+
+.showroom-card-carousel.active {
+    opacity: 1; transform: scale(1.1);
+    background: rgba(40, 40, 40, 0.95);
+    border-color: #d4af37;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 2;
+}
+
+.selection-border {
+    position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+    border: 2px solid #d4af37; border-radius: 10px;
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.5); pointer-events: none;
+}
+
+.carousel-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; width: 60px; height: 60px; border-radius: 50%;
+    font-size: 24px; cursor: pointer; z-index: 20; transition: 0.2s;
+}
+.carousel-arrow:hover { background: #fff; color: #000; transform: translateY(-50%) scale(1.1); }
+.carousel-arrow.left { left: 10%; }
+.carousel-arrow.right { right: 10%; }
+
+.key-hint { margin-top: 10px; font-size: 14px; color: #aaa; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 20px; }
+
+/* Styles เดิม */
 .btn-danger { background: #c0392b; color: #fff; box-shadow: none !important; }
 .btn-danger:hover { background: #e74c3c; box-shadow: none !important; }
-
-/* ... Styles อื่นๆ ใน Dashboard.vue ที่ไม่ได้ใช้ใน ShopView แล้ว ก็ปล่อยไว้ได้ หรือจะลบออกก็ได้ถ้าไม่ได้ใช้ ... */
-/* เช่น .sidebar, .details-panel ถ้าไม่ได้ใช้แล้วก็ลบออกได้ */
+.btn-gold { background: #DAA520; color: #000; box-shadow: none !important; }
+.btn-gold:hover { background: #FFD700 !important; box-shadow: 0 0 15px rgba(255,215,0,0.4) !important; transform: translateY(-1px); }
 
 .empty-notif { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #888; }
 .empty-notif h2 { color: #fff; font-size: 24px; margin-bottom: 10px; }
-.carousel-container { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 20; }
-.carousel-container-wide { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: row; align-items: center; gap: 20px; z-index: 20; }
-.decor-grid-6 { display: flex; gap: 15px; }
-.nav-arrow { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.2s; font-family: Arial, sans-serif !important; }
-.nav-arrow:hover { background: #fff; color: #000; transform: scale(1.1); }
-.decor-selector-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; text-shadow: 0 2px 5px rgba(0,0,0,0.8); }
-.decor-item-name { font-size: 42px; margin: 0; font-weight: 600; color: #fff; letter-spacing: 1px; }
-.decor-nav-row { display: flex; align-items: center; gap: 15px; font-size: 16px; color: #ddd; }
+.shop-controls-center { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; z-index: 20; }
+.buy-actions-row { display: flex; gap: 15px; justify-content: center; }
 .buy-btn-small { margin-top: 15px; padding: 10px 40px; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; border-radius: 30px; font-size: 13px; letter-spacing: 1px; transition: 0.2s; box-shadow: none !important; }
 .buy-btn-small:hover { background: #d4af37; color: #fff; transform: translateY(-2px); box-shadow: none !important; }
 .empty-state-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); z-index: 5; }
